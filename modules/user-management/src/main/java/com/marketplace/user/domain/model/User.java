@@ -196,14 +196,22 @@ public class User extends AggregateRoot<UserId> {
         markAsUpdated();
     }
 
-    public void changePassword(Password currentPassword, Password newPassword) {
+    /**
+     * Changes the user's password after validating the current password.
+     * 
+     * @param currentPlainPassword the current password in plain text
+     * @param newPlainPassword the new password in plain text
+     * @throws IllegalArgumentException if current password is incorrect
+     * @throws IllegalStateException if user is not active
+     */
+    public void changePassword(String currentPlainPassword, String newPlainPassword) {
         validateActiveStatus();
         
-        if (!this.password.matches(currentPassword)) {
+        if (!this.password.matchesPlainText(currentPlainPassword)) {
             throw new IllegalArgumentException("Current password is incorrect");
         }
         
-        this.password = newPassword;
+        this.password = Password.of(newPlainPassword);
         markAsUpdated();
     }
 

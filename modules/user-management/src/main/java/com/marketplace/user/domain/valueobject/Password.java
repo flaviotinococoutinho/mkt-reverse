@@ -100,7 +100,20 @@ public class Password implements Serializable {
     }
 
     /**
-     * Verifies if the provided password object matches this password
+     * Verifies if the provided plain text password matches this password.
+     * This is the correct method to use for password verification.
+     * 
+     * @param plainPassword the plain text password to verify
+     * @return true if the password matches, false otherwise
+     */
+    public boolean matchesPlainText(String plainPassword) {
+        return matches(plainPassword);
+    }
+
+    /**
+     * Verifies if the provided password object matches this password.
+     * This compares the actual hash, salt and algorithm.
+     * Note: This is for comparing stored passwords, not for authentication.
      */
     public boolean matches(Password other) {
         if (other == null) {

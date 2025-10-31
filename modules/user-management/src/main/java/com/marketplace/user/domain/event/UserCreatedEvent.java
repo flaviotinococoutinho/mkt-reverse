@@ -7,6 +7,7 @@ import lombok.Getter;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * User Created Domain Event
@@ -18,57 +19,47 @@ import java.util.Map;
  * - Immutable event data
  * - Rich context information
  * - Backward compatible structure
+ * - Implements shared DomainEvent contract
  */
 @Getter
 public class UserCreatedEvent implements DomainEvent {
 
+    private final UUID eventId;
+    private final String aggregateId;
+    private final String aggregateType;
+    private final Instant occurredOn;
+    private final Long aggregateVersion;
+    private final String correlationId;
+    
     private final String userId;
     private final String email;
     private final UserType userType;
     private final String displayName;
     private final EventMetadata metadata;
 
-    public UserCreatedEvent(String userId, String email, UserType userType, String displayName) {
+    public UserCreatedEvent(
+        String userId, 
+        String email, 
+        UserType userType, 
+        String displayName,
+        Long aggregateVersion
+    ) {
+        this.eventId = UUID.randomUUID();
+        this.aggregateId = userId;
+        this.aggregateType = "User";
+        this.occurredOn = Instant.now();
+        this.aggregateVersion = aggregateVersion != null ? aggregateVersion : 0L;
+        this.correlationId = null;
+        
         this.userId = userId;
         this.email = email;
         this.userType = userType;
         this.displayName = displayName;
-        this.metadata = EventMetadata.create(
-            "UserCreatedEvent",
-            "1.0",
-            Instant.now(),
-            userId,
-            Map.of(
-                "userType", userType.name(),
-                "email", email,
-                "displayName", displayName
-            )
-        );
-    }
-
-    @Override
-    public String getEventType() {
-        return "UserCreatedEvent";
-    }
-
-    @Override
-    public String getEventVersion() {
-        return "1.0";
-    }
-
-    @Override
-    public Instant getOccurredAt() {
-        return metadata.getOccurredAt();
-    }
-
-    @Override
-    public String getAggregateId() {
-        return userId;
-    }
-
-    @Override
-    public EventMetadata getMetadata() {
-        return metadata;
+        this.metadata = EventMetadata.of(Map.of(
+            "userType", userType.name(),
+            "email", email,
+            "displayName", displayName
+        ));
     }
 
     /**
@@ -80,7 +71,7 @@ public class UserCreatedEvent implements DomainEvent {
             "email", email,
             "userType", userType.name(),
             "displayName", displayName,
-            "occurredAt", getOccurredAt().toString()
+            "occurredOn", occurredOn.toString()
         );
     }
 
@@ -115,12 +106,12 @@ public class UserCreatedEvent implements DomainEvent {
     @Override
     public String toString() {
         return "UserCreatedEvent{" +
-               "userId='" + userId + '\'' +
+               "eventId=" + eventId +
+               ", userId='" + userId + '\'' +
                ", email='" + email + '\'' +
                ", userType=" + userType +
                ", displayName='" + displayName + '\'' +
-               ", occurredAt=" + getOccurredAt() +
+               ", occurredOn=" + occurredOn +
                '}';
     }
 }
-

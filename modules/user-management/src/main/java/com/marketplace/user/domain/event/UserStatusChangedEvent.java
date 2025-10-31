@@ -6,7 +6,9 @@ import com.marketplace.user.domain.valueobject.UserStatus;
 import lombok.Getter;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * User Status Changed Domain Event
@@ -19,64 +21,61 @@ import java.util.Map;
  * - State transition tracking
  * - Audit trail support
  * - Security-aware notifications
+ * - Implements shared DomainEvent contract
  */
 @Getter
 public class UserStatusChangedEvent implements DomainEvent {
 
+    private final UUID eventId;
+    private final String aggregateId;
+    private final String aggregateType;
+    private final Instant occurredOn;
+    private final Long aggregateVersion;
+    private final String correlationId;
+    
     private final String userId;
     private final UserStatus oldStatus;
     private final UserStatus newStatus;
     private final String reason;
     private final EventMetadata metadata;
 
-    public UserStatusChangedEvent(String userId, UserStatus oldStatus, UserStatus newStatus) {
-        this(userId, oldStatus, newStatus, null);
+    public UserStatusChangedEvent(
+        String userId, 
+        UserStatus oldStatus, 
+        UserStatus newStatus,
+        Long aggregateVersion
+    ) {
+        this(userId, oldStatus, newStatus, null, aggregateVersion);
     }
 
-    public UserStatusChangedEvent(String userId, UserStatus oldStatus, UserStatus newStatus, String reason) {
+    public UserStatusChangedEvent(
+        String userId, 
+        UserStatus oldStatus, 
+        UserStatus newStatus, 
+        String reason,
+        Long aggregateVersion
+    ) {
+        this.eventId = UUID.randomUUID();
+        this.aggregateId = userId;
+        this.aggregateType = "User";
+        this.occurredOn = Instant.now();
+        this.aggregateVersion = aggregateVersion != null ? aggregateVersion : 0L;
+        this.correlationId = null;
+        
         this.userId = userId;
         this.oldStatus = oldStatus;
         this.newStatus = newStatus;
         this.reason = reason;
-        this.metadata = EventMetadata.create(
-            "UserStatusChangedEvent",
-            "1.0",
-            Instant.now(),
-            userId,
-            Map.of(
-                "oldStatus", oldStatus.name(),
-                "newStatus", newStatus.name(),
-                "reason", reason != null ? reason : "",
-                "isRestriction", isRestriction(),
-                "isActivation", isActivation(),
-                "severity", getSeverity()
-            )
-        );
-    }
-
-    @Override
-    public String getEventType() {
-        return "UserStatusChangedEvent";
-    }
-
-    @Override
-    public String getEventVersion() {
-        return "1.0";
-    }
-
-    @Override
-    public Instant getOccurredAt() {
-        return metadata.getOccurredAt();
-    }
-
-    @Override
-    public String getAggregateId() {
-        return userId;
-    }
-
-    @Override
-    public EventMetadata getMetadata() {
-        return metadata;
+        
+        Map<String, Object> metadataProps = new HashMap<>();
+        metadataProps.put("oldStatus", oldStatus.name());
+        metadataProps.put("newStatus", newStatus.name());
+        metadataProps.put("reason", reason != null ? reason : "");
+        metadataProps.put("isRestriction", isRestriction());
+        metadataProps.put("isActivation", isActivation());
+        metadataProps.put("severity", getSeverity());
+        
+        this.metadata = EventMetadata.of(metadataProps);
     }
 
     /**
@@ -145,7 +144,7 @@ public class UserStatusChangedEvent implements DomainEvent {
                 "isActivation", isActivation(),
                 "severity", getSeverity()
             ),
-            "occurredAt", getOccurredAt().toString()
+            "occurredOn", occurredOn.toString()
         );
     }
 
@@ -225,13 +224,13 @@ public class UserStatusChangedEvent implements DomainEvent {
     @Override
     public String toString() {
         return "UserStatusChangedEvent{" +
-               "userId='" + userId + '\'' +
+               "eventId=" + eventId +
+               ", userId='" + userId + '\'' +
                ", oldStatus=" + oldStatus +
                ", newStatus=" + newStatus +
                ", reason='" + reason + '\'' +
                ", severity='" + getSeverity() + '\'' +
-               ", occurredAt=" + getOccurredAt() +
+               ", occurredOn=" + occurredOn +
                '}';
     }
 }
-
