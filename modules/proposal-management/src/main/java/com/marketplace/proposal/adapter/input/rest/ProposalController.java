@@ -2,13 +2,17 @@ package com.marketplace.proposal.adapter.input.rest;
 
 import com.marketplace.proposal.application.dto.request.SubmitProposalRequest;
 import com.marketplace.proposal.application.dto.response.ProposalResponse;
+import com.marketplace.proposal.application.port.input.FindProposalsByOpportunityUseCase;
+import com.marketplace.proposal.application.port.input.GetProposalUseCase;
 import com.marketplace.proposal.application.port.input.SubmitProposalUseCase;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -36,9 +40,17 @@ public class ProposalController {
     private static final Logger logger = LoggerFactory.getLogger(ProposalController.class);
     
     private final SubmitProposalUseCase submitProposalUseCase;
+    private final GetProposalUseCase getProposalUseCase;
+    private final FindProposalsByOpportunityUseCase findProposalsByOpportunityUseCase;
     
-    public ProposalController(SubmitProposalUseCase submitProposalUseCase) {
+    public ProposalController(
+        SubmitProposalUseCase submitProposalUseCase,
+        GetProposalUseCase getProposalUseCase,
+        FindProposalsByOpportunityUseCase findProposalsByOpportunityUseCase
+    ) {
         this.submitProposalUseCase = submitProposalUseCase;
+        this.getProposalUseCase = getProposalUseCase;
+        this.findProposalsByOpportunityUseCase = findProposalsByOpportunityUseCase;
     }
     
     /**
@@ -77,8 +89,11 @@ public class ProposalController {
     public Mono<ProposalResponse> getProposal(@PathVariable Long proposalId) {
         logger.info("Received request to get proposal: proposalId={}", proposalId);
         
-        // TODO: Implement GetProposalUseCase
-        return Mono.empty();
+        return getProposalUseCase.execute(proposalId)
+            .switchIfEmpty(Mono.error(new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Proposal not found"
+            )));
     }
     
     /**
@@ -91,11 +106,10 @@ public class ProposalController {
         value = "/opportunity/{opportunityId}",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public Mono<ProposalResponse> getProposalsForOpportunity(@PathVariable Long opportunityId) {
+    public Flux<ProposalResponse> getProposalsForOpportunity(@PathVariable Long opportunityId) {
         logger.info("Received request to get proposals for opportunityId: {}", opportunityId);
         
-        // TODO: Implement FindProposalsByOpportunityUseCase
-        return Mono.empty();
+        return findProposalsByOpportunityUseCase.execute(opportunityId);
     }
     
     /**
