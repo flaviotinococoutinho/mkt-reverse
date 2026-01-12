@@ -1,0 +1,155 @@
+spring:
+  application:
+    name: opportunity-management-service
+  
+  # R2DBC Configuration (Reactive PostgreSQL)
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:marketplace}
+    username: ${DB_USERNAME:marketplace_user}
+    password: ${DB_PASSWORD:marketplace_pass}
+    pool:
+      initial-size: 10
+      max-size: 50
+      max-idle-time: 30m
+      max-acquire-time: 3s
+      max-create-connection-time: 5s
+  
+  # Flyway Configuration (Database Migrations)
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    schemas: public
+    table: flyway_schema_history_opportunity
+    validate-on-migrate: true
+  
+  # JMS Configuration (RabbitMQ)
+  jms:
+    listener:
+      auto-startup: true
+      acknowledge-mode: client
+      concurrency: 5-10
+    template:
+      delivery-mode: persistent
+      priority: 5
+      time-to-live: 3600000  # 1 hour
+  
+  # Jackson Configuration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: false
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: non_null
+    time-zone: UTC
+  
+  # WebFlux Configuration
+  webflux:
+    base-path: /api/v1
+
+# Server Configuration
+server:
+  port: ${SERVER_PORT:8081}
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  http2:
+    enabled: true
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.marketplace: DEBUG
+    org.springframework.r2dbc: DEBUG
+    org.springframework.jms: DEBUG
+    org.flywaydb: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/opportunity-management.log
+    max-size: 10MB
+    max-history: 30
+
+# Management & Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+      environment: ${ENVIRONMENT:development}
+  tracing:
+    sampling:
+      probability: 1.0  # 100% for development, reduce in production
+
+# Application Specific Configuration
+marketplace:
+  opportunity:
+    # Validation rules
+    validation:
+      title:
+        min-length: 10
+        max-length: 200
+      description:
+        min-length: 50
+        max-length: 5000
+      budget:
+        min-amount: 0.01
+      deadline:
+        min-days-ahead: 1
+        max-days-ahead: 365
+    
+    # Business rules
+    max-attachments: 10
+    max-specifications: 50
+    default-currency: BRL
+    
+    # WebSocket configuration
+    websocket:
+      path: /ws/opportunities
+      heartbeat-interval: 30s
+      max-sessions: 10000
+    
+    # Event publishing
+    events:
+      exchange-prefix: marketplace.events.
+      retry:
+        max-attempts: 3
+        backoff-delay: 1000  # milliseconds
+        backoff-multiplier: 2.0
+
+# Snowflake ID Generator Configuration
+snowflake:
+  worker-id: ${WORKER_ID:1}
+  datacenter-id: ${DATACENTER_ID:1}
+
+# RabbitMQ Configuration
+rabbitmq:
+  host: ${RABBITMQ_HOST:localhost}
+  port: ${RABBITMQ_PORT:5672}
+  username: ${RABBITMQ_USERNAME:guest}
+  password: ${RABBITMQ_PASSWORD:guest}
+  virtual-host: ${RABBITMQ_VHOST:/}
+  connection-timeout: 30000
+  requested-heartbeat: 60
+
+# Multi-tenancy Configuration
+multi-tenancy:
+  enabled: true
+  strategy: SCHEMA  # SCHEMA, DATABASE, or DISCRIMINATOR
+  default-tenant: default
+  tenant-header: X-Tenant-ID

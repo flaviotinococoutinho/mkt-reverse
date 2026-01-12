@@ -7,6 +7,7 @@ import lombok.Getter;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * User Profile Updated Domain Event
@@ -18,55 +19,44 @@ import java.util.Map;
  * - Immutable event data
  * - Before/after state tracking
  * - Privacy-aware (no sensitive data)
+ * - Implements shared DomainEvent contract
  */
 @Getter
 public class UserProfileUpdatedEvent implements DomainEvent {
 
+    private final UUID eventId;
+    private final String aggregateId;
+    private final String aggregateType;
+    private final Instant occurredOn;
+    private final Long aggregateVersion;
+    private final String correlationId;
+    
     private final String userId;
     private final PersonalInfo oldPersonalInfo;
     private final PersonalInfo newPersonalInfo;
     private final EventMetadata metadata;
 
-    public UserProfileUpdatedEvent(String userId, PersonalInfo oldPersonalInfo, PersonalInfo newPersonalInfo) {
+    public UserProfileUpdatedEvent(
+        String userId, 
+        PersonalInfo oldPersonalInfo, 
+        PersonalInfo newPersonalInfo,
+        Long aggregateVersion
+    ) {
+        this.eventId = UUID.randomUUID();
+        this.aggregateId = userId;
+        this.aggregateType = "User";
+        this.occurredOn = Instant.now();
+        this.aggregateVersion = aggregateVersion != null ? aggregateVersion : 0L;
+        this.correlationId = null;
+        
         this.userId = userId;
         this.oldPersonalInfo = oldPersonalInfo;
         this.newPersonalInfo = newPersonalInfo;
-        this.metadata = EventMetadata.create(
-            "UserProfileUpdatedEvent",
-            "1.0",
-            Instant.now(),
-            userId,
-            Map.of(
-                "oldDisplayName", oldPersonalInfo != null ? oldPersonalInfo.getDisplayName() : "",
-                "newDisplayName", newPersonalInfo != null ? newPersonalInfo.getDisplayName() : "",
-                "nameChanged", hasNameChanged()
-            )
-        );
-    }
-
-    @Override
-    public String getEventType() {
-        return "UserProfileUpdatedEvent";
-    }
-
-    @Override
-    public String getEventVersion() {
-        return "1.0";
-    }
-
-    @Override
-    public Instant getOccurredAt() {
-        return metadata.getOccurredAt();
-    }
-
-    @Override
-    public String getAggregateId() {
-        return userId;
-    }
-
-    @Override
-    public EventMetadata getMetadata() {
-        return metadata;
+        this.metadata = EventMetadata.of(Map.of(
+            "oldDisplayName", oldPersonalInfo != null ? oldPersonalInfo.getDisplayName() : "",
+            "newDisplayName", newPersonalInfo != null ? newPersonalInfo.getDisplayName() : "",
+            "nameChanged", hasNameChanged()
+        ));
     }
 
     /**
@@ -101,7 +91,7 @@ public class UserProfileUpdatedEvent implements DomainEvent {
                 "oldDisplayName", oldPersonalInfo != null ? oldPersonalInfo.getDisplayName() : "",
                 "newDisplayName", newPersonalInfo != null ? newPersonalInfo.getDisplayName() : ""
             ),
-            "occurredAt", getOccurredAt().toString()
+            "occurredOn", occurredOn.toString()
         );
     }
 
@@ -136,11 +126,11 @@ public class UserProfileUpdatedEvent implements DomainEvent {
     @Override
     public String toString() {
         return "UserProfileUpdatedEvent{" +
-               "userId='" + userId + '\'' +
+               "eventId=" + eventId +
+               ", userId='" + userId + '\'' +
                ", nameChanged=" + hasNameChanged() +
                ", displayNameChanged=" + hasDisplayNameChanged() +
-               ", occurredAt=" + getOccurredAt() +
+               ", occurredOn=" + occurredOn +
                '}';
     }
 }
-

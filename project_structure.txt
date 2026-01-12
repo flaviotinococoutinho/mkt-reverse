@@ -1,0 +1,28 @@
+.
+|-- docker
+|   `-- postgres
+|-- modules
+|   |-- opportunity-management
+|   |   `-- src
+|   |       `-- main
+|   |-- sourcing-management
+|   |   `-- src
+|   |       `-- main
+|   |-- ui-configuration-service
+|   |   `-- src
+|   |       `-- main
+|   `-- user-management
+|       `-- src
+|           `-- main
+`-- shared
+    |-- shared-domain
+    |   `-- src
+    |       `-- main
+    |-- shared-infrastructure
+    |   `-- src
+    |       `-- main
+    `-- shared-security
+        `-- src
+            `-- main
+
+25 directories
