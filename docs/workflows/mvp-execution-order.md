@@ -72,7 +72,7 @@ mvn -pl application/api-gateway -am test
 
 ## Backlog imediato (próximas rodadas)
 
-1. **Criar checklist de demo** em `docs/mvp-demo-checklist.md` com roteiro enxuto.
+1. **Criar checklist de demo** em `docs/workflows/mvp-demo-checklist.md` com roteiro enxuto.
 2. **Cobrir fluxos críticos de formulário** com testes (CreateRequest e SubmitProposal).
 3. **Padronizar tratamento de erro** com `ProblemDetails` em todas as telas principais.
 4. **Atualizar README** com seção “Current MVP (Implemented)” para refletir estado real.

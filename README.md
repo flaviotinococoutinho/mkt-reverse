@@ -364,10 +364,17 @@ npm run smoke:api
 
 ### Documentação Técnica
 
-- [Arquitetura Detalhada](docs/architecture.md)
-- [Padrões Enterprise](docs/enterprise-patterns.md)
-- [Guia de Desenvolvimento](docs/development-guide.md)
-- [Deployment Guide](docs/deployment.md)
+- [Arquitetura de Contexto do Sistema](docs/architecture/system-context.md)
+- [Padrões Enterprise C2B](docs/architecture/enterprise-patterns.md)
+- [Clean Architecture & DDD](docs/architecture/clean-arch-ddd.md)
+- [Multi-tenancy Models](docs/architecture/multi-tenancy-markets.md)
+
+### Produto & Design
+
+- [Visão do Produto](docs/product/vision.md)
+- [Proposta de Negócio](docs/product/business-proposal.md)
+- [Jornadas de Usuário e Fluxos](docs/product/user-journey.md)
+- [Identidade Visual (O Leilão)](docs/product/visual-identity.md)
 
 ## 🤝 Contribuição
 

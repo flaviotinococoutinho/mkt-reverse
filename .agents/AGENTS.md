@@ -338,8 +338,7 @@ Implemented surfaces:
 
 ## Working style
 
-- Prefer **small, test-driven slices**.
-- If you discover inconsistencies between docs and code, create/update `docs/consistency-report.md` and propose the minimal fixes.
+- If you discover inconsistencies between docs and code, create/update `docs/quality/consistency-report.md` and propose the minimal fixes.
 
 ## Ports & Adapters naming (project standard)
 

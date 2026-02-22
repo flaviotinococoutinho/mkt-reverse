@@ -1,7 +1,7 @@
 # QueroJá — Project Context (source of truth)
 
 > This document is meant to make it easy for humans + agents to stay aligned.
-> If anything here conflicts with the code, update **both** or create `docs/consistency-report.md`.
+> If anything here conflicts with the code, update **both** or create `docs/quality/consistency-report.md`.
 
 ## Product summary
 
