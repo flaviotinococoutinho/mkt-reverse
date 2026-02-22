@@ -4,7 +4,7 @@ Fonte única para a sequência de execução diária do MVP, alinhando `AGENTS.m
 
 ## Princípios operacionais (mandatórios)
 
-1. **Sempre seguir `AGENTS.md`** antes de codar (escopo, Java 21, comandos e limites do MVP).
+1. **Sempre seguir `AGENTS.md`** antes de codar (escopo, Java 25, comandos e limites do MVP).
 2. **Incremento diário pequeno, funcional e testável**.
 3. **Sem email e sem imagens no MVP**.
 4. **Priorizar frontend (`application/web-app`) consumindo backend já existente**.

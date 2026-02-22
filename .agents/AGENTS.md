@@ -7,7 +7,7 @@ This file is **for AI agents (and humans)** operating inside this repo.
 - **Work only inside this repo**: `/Users/flaviocoutinho/development/mkt-reverse`
 - Prefer **small, reviewable commits** (even if you don’t commit yet: keep diffs cohesive)
 - **No external dependencies required** to run the MVP locally (Docker is allowed)
-- Default JVM for builds/tests is **Java 21 via SDKMAN**
+- Default JVM for builds/tests is **Java 25 via SDKMAN**
 - **No email + no images in MVP**: avoid email-based flows (signup/verification/notifications) and avoid image upload/URLs in APIs and UI. Use phone/WhatsApp-style contact identifiers when a contact channel is required.
 
 ## Product context (QueroJá)
@@ -279,7 +279,7 @@ Implemented surfaces:
   - Infrastructure adapts JPA/Spring/etc.
 
 - **Backend platform constraints (non-negotiable)**
-  - Java 21 + Spring Boot 3.3 with a bias toward **GraalVM Native Image** compatibility
+  - Java 25 + Spring Boot 3.3 with a bias toward **GraalVM Native Image** compatibility
   - PostgreSQL 15/16 with **JSONB**, **RLS**, and **partitioning** where needed
   - Async integration via **Transactional Outbox Light** (`event_outbox` + scheduler)
   - REST/HTTP stateless as default; WebSocket only for chat/critical notifications

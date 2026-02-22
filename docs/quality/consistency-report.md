@@ -6,7 +6,7 @@ Last updated: 2026-02-19
 
 ## ✅ What is consistent and working
 
-- Java toolchain: project builds reliably under **Java 21 (SDKMAN + Maven toolchains)**.
+- Java toolchain: project builds reliably under **Java 25 (SDKMAN + Maven toolchains)**.
 - MVP slice exists and is test-covered:
   - Buyer creates sourcing event
   - Supplier submits response

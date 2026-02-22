@@ -1,6 +1,6 @@
 # QueroJá — Marketplace Reverso (C2B) — Monorepo
 
-[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.java.net/projects/jdk/21/)
+[![Java](https://img.shields.io/badge/Java-25-orange.svg)](https://openjdk.java.net/projects/jdk/25/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg)](https://docs.docker.com/compose/)
@@ -117,7 +117,7 @@ Este repositório **não assume** (ainda) as peças “enterprise” clássicas 
 
 ### Pilares (imutáveis)
 
-- **Backend:** Java 21 + Spring Boot 3.3, com suporte a **GraalVM Native Image** (startup/footprint).
+- **Backend:** Java 25 + Spring Boot 3.3, com suporte a **GraalVM Native Image** (startup/footprint).
 - **Banco:** PostgreSQL 15/16 com uso intensivo de **JSONB** (atributos variáveis) + **RLS** (multi-tenant/isolamento) + particionamento (range) para dados volumosos (intents/proposals/eventos).
 - **Comunicação:** REST/HTTP stateless por padrão; **WebSocket** apenas para Chat/Notificações críticas.
 - **Assíncrono:** Transactional Outbox Light.
@@ -152,7 +152,7 @@ mkt-reverse/
 ### Stack Tecnológica
 
 #### Backend
-- **Java 21** (LTS) - Linguagem principal
+- **Java 25** (LTS) - Linguagem principal
 - **Spring Boot 3.3.x** - Framework principal
 - **Spring Security 6.x** - Segurança
 - **Spring Data JPA** - Persistência
@@ -180,7 +180,7 @@ mkt-reverse/
 
 ### Pré-requisitos
 
-- **Java 21** ou superior
+- **Java 25** ou superior
 - **Docker** e **Docker Compose**
 - **Maven 3.9+**
 - **Git**

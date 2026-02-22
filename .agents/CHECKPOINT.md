@@ -238,7 +238,7 @@ const StatCard = ({ icon: Icon, label, value }: { icon: any; label: string; valu
   - `source "$HOME/.sdkman/bin/sdkman-init.sh" && sdk env && mvn -pl application/api-gateway -am -DskipTests compile` ✅
 
 **3. Desafios Encontrados (se houver):**
-- Ambiente local estava usando Java 25 em uma tentativa inicial, causando ruído com JaCoCo; execução foi normalizada com `sdk env` (Java 21), conforme `AGENTS.md`.
+- Ambiente local estava usando Java 25 em uma tentativa inicial, causando ruído com JaCoCo; execução foi normalizada com `sdk env` (Java 25), conforme `AGENTS.md`.
 
 **4. Próximo Passo Planejado:**
 - Rodar `cd application/web-app && npm run smoke:api` com `api-gateway` em pé para validar fim-a-fim a criação/submissão/aceite após o ajuste de contrato.

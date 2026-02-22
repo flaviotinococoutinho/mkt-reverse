@@ -28,7 +28,7 @@ Core flow:
 
 ## Technical pillars (immutable)
 
-- **Backend:** Java 21 + Spring Boot 3.3, designed with **GraalVM Native Image** in mind.
+- **Backend:** Java 25 + Spring Boot 3.3, designed with **GraalVM Native Image** in mind.
 - **Database:** PostgreSQL 15/16
   - Heavy usage of **JSONB** for variable attributes/specs
   - **Partitioning (range)** for high-volume tables (intents, proposals, outbox, notifications, etc.)
