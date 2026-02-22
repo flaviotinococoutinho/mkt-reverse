@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/marketplace_main
+    username: marketplace_user
+    password: marketplace_pass
+
+  # Local dev uses Hibernate ddl-auto for the MVP slice; Flyway should not block startup
+  # when the schema is already non-empty (e.g., reused Docker volume).
+  flyway:
+    baseline-on-migrate: true
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+server:
+  port: 8081

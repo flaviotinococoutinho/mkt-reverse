@@ -30,7 +30,6 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     "com.marketplace.shared"
 })
 @EnableJpaRepositories(basePackages = {
-    "com.marketplace.user.domain.repository",
     "com.marketplace.user.infrastructure.persistence"
 })
 @EnableJpaAuditing

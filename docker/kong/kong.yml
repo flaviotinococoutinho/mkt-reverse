@@ -1,0 +1,54 @@
+_format_version: "3.0"
+_transform: true
+
+# Kong in DB-less mode.
+#
+# Goals:
+# - Provide a stable edge entrypoint (http://localhost:8000)
+# - Route to internal services by path
+# - Keep state in backend services; Kong just routes and applies thin cross-cutting concerns
+# - Add correlation-id at the edge (compatible with existing X-Correlation-Id in api-gateway)
+
+plugins:
+  - name: correlation-id
+    enabled: true
+    config:
+      header_name: X-Correlation-Id
+      generator: uuid
+      echo_downstream: true
+
+services:
+  # Spring API gateway (current edge app)
+  - name: api-gateway
+    url: http://api-gateway:8080
+    routes:
+      # Everything under /api goes to the Spring edge.
+      - name: api
+        paths:
+          - /api
+        strip_path: false
+
+      # GraphQL is served by the Spring edge.
+      - name: graphql
+        paths:
+          - /graphql
+        strip_path: false
+
+      # Convenience: /health proxies to /api/v1/health
+      - name: health
+        paths:
+          - /health
+        strip_path: true
+        request_buffering: true
+        response_buffering: true
+    plugins:
+      # If you want to centralize auth later, do it here.
+      # For now, keep it thin.
+      - name: request-transformer
+        enabled: true
+        config:
+          replace:
+            uri: /api/v1/health
+        protocols:
+          - http
+

@@ -1,6 +1,28 @@
-version: '3.8'
-
 services:
+  kong:
+    image: kong:3.6
+    profiles: ["edge"]
+    container_name: mkt-reverse-kong
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    ports:
+      - "8002:8000" # proxy (8000 is used by another local container)
+      - "8003:8001" # admin api
+    volumes:
+      - ./docker/kong/kong.yml:/kong/declarative/kong.yml:ro
+    # Do not depend_on api-gateway here because the compose file currently
+    # builds application images (and some Dockerfile paths may not exist yet).
+    # Start api-gateway separately, then bring Kong up.
+    networks:
+      - marketplace-network
+
   # Database Services
   postgres-main:
     image: postgres:16-alpine
@@ -26,6 +48,7 @@ services:
 
   postgres-events:
     image: postgres:16-alpine
+    profiles: ["platform"]
     container_name: mkt-reverse-postgres-events
     environment:
       POSTGRES_DB: marketplace_events
@@ -47,6 +70,7 @@ services:
   # Redis for Caching and Sessions
   redis:
     image: redis:7-alpine
+    profiles: ["platform"]
     container_name: mkt-reverse-redis
     ports:
       - "6379:6379"
@@ -65,10 +89,13 @@ services:
   # Message Broker - Kafka
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
+    profiles: ["platform"]
     container_name: mkt-reverse-zookeeper
+    restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_HEAP_OPTS: "-Xms128m -Xmx128m"
     volumes:
       - zookeeper_data:/var/lib/zookeeper/data
       - zookeeper_logs:/var/lib/zookeeper/log
@@ -77,15 +104,19 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
+    profiles: ["platform"]
     container_name: mkt-reverse-kafka
+    restart: unless-stopped
     depends_on:
       - zookeeper
     ports:
       - "9092:9092"
       - "9094:9094"
     environment:
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx256m"
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS: 6000
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
@@ -108,6 +139,7 @@ services:
   # Kafka UI for Development
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
+    profiles: ["platform"]
     container_name: mkt-reverse-kafka-ui
     depends_on:
       - kafka
@@ -122,6 +154,7 @@ services:
 
   # Search Engine - Elasticsearch
   elasticsearch:
+    profiles: ["es"]
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: mkt-reverse-elasticsearch
     environment:
@@ -141,8 +174,45 @@ services:
       timeout: 10s
       retries: 5
 
+  # Search Engine - OpenSearch (recommended for fuzzy search / marketplace directory)
+  opensearch:
+    profiles: ["search"]
+    image: opensearchproject/opensearch:2.12.0
+    container_name: mkt-reverse-opensearch
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9201:9200"
+      - "9600:9600" # performance analyzer
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    networks:
+      - marketplace-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  opensearch-dashboards:
+    profiles: ["search"]
+    image: opensearchproject/opensearch-dashboards:2.12.0
+    container_name: mkt-reverse-opensearch-dashboards
+    ports:
+      - "5601:5601"
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+    networks:
+      - marketplace-network
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
   # Kibana for Elasticsearch
   kibana:
+    profiles: ["es"]
     image: docker.elastic.co/kibana/kibana:8.11.0
     container_name: mkt-reverse-kibana
     depends_on:
@@ -157,6 +227,7 @@ services:
   # Monitoring - Prometheus
   prometheus:
     image: prom/prometheus:v2.48.0
+    profiles: ["platform"]
     container_name: mkt-reverse-prometheus
     ports:
       - "9090:9090"
@@ -176,6 +247,7 @@ services:
   # Monitoring - Grafana
   grafana:
     image: grafana/grafana:10.2.0
+    profiles: ["platform"]
     container_name: mkt-reverse-grafana
     ports:
       - "3000:3000"
@@ -193,6 +265,7 @@ services:
   # Jaeger for Distributed Tracing
   jaeger:
     image: jaegertracing/all-in-one:1.51
+    profiles: ["platform"]
     container_name: mkt-reverse-jaeger
     ports:
       - "16686:16686"
@@ -206,6 +279,7 @@ services:
   # MinIO for Object Storage (S3 Compatible)
   minio:
     image: minio/minio:RELEASE.2023-12-07T04-16-00Z
+    profiles: ["platform"]
     container_name: mkt-reverse-minio
     ports:
       - "9000:9000"
@@ -219,34 +293,25 @@ services:
     networks:
       - marketplace-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD-SHELL", "mc alias set local http://localhost:9000 \"$$MINIO_ROOT_USER\" \"$$MINIO_ROOT_PASSWORD\" >/dev/null 2>&1 && mc ready -q local"]
       interval: 30s
       timeout: 20s
       retries: 3
-
-  # Mailhog for Email Testing
-  mailhog:
-    image: mailhog/mailhog:v1.0.1
-    container_name: mkt-reverse-mailhog
-    ports:
-      - "1025:1025"
-      - "8025:8025"
-    networks:
-      - marketplace-network
 
   # Nginx for Load Balancing and Reverse Proxy
   nginx:
     image: nginx:1.25-alpine
     container_name: mkt-reverse-nginx
+    restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
       - ./docker/nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       - api-gateway
+      - web-app
     networks:
       - marketplace-network
 
@@ -256,27 +321,27 @@ services:
       context: .
       dockerfile: application/api-gateway/Dockerfile
     container_name: mkt-reverse-api-gateway
+    restart: unless-stopped
     ports:
       - "8081:8080"
     environment:
+      # Keep memory bounded for Docker Desktop (prevents OOMKills when running full stack).
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-main:5432/marketplace_main
       SPRING_DATASOURCE_USERNAME: marketplace_user
       SPRING_DATASOURCE_PASSWORD: marketplace_pass
-      SPRING_REDIS_HOST: redis
-      SPRING_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      ELASTICSEARCH_HOSTS: elasticsearch:9200
+      # Elasticsearch is optional; OpenSearch is the recommended local search engine.
+      # ELASTICSEARCH_HOSTS is intentionally omitted by default.
       JAEGER_ENDPOINT: http://jaeger:14268/api/traces
     depends_on:
       postgres-main:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
+      # Optional (profile "platform"): redis/kafka/etc.
+      # elasticsearch is optional (profile "es")
     networks:
       - marketplace-network
     volumes:
@@ -287,8 +352,28 @@ services:
       timeout: 10s
       retries: 5
 
+  # Web UI (React + Vite)
+  web-app:
+    build:
+      context: application/web-app
+      dockerfile: Dockerfile
+    container_name: mkt-reverse-web-app
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=256"
+      VITE_API_URL: /api/v1
+      VITE_API_TARGET: http://api-gateway:8080
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    networks:
+      - marketplace-network
+
   # User Management Service
   user-management:
+    profiles: ["microservices"]
     build:
       context: .
       dockerfile: modules/user-management/Dockerfile
@@ -316,6 +401,7 @@ services:
 
   # Sourcing Management Service
   sourcing-management:
+    profiles: ["microservices"]
     build:
       context: .
       dockerfile: modules/sourcing-management/Dockerfile
@@ -329,7 +415,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: marketplace_pass
       SPRING_REDIS_HOST: redis
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      ELASTICSEARCH_HOSTS: elasticsearch:9200
+      # Elasticsearch is optional; OpenSearch is the recommended local search engine.
+      # ELASTICSEARCH_HOSTS is intentionally omitted by default.
     depends_on:
       postgres-main:
         condition: service_healthy
@@ -337,8 +424,7 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
+      # elasticsearch is optional (profile "es")
     networks:
       - marketplace-network
     volumes:
@@ -359,6 +445,8 @@ volumes:
     driver: local
   elasticsearch_data:
     driver: local
+  opensearch_data:
+    driver: local
   prometheus_data:
     driver: local
   grafana_data:
@@ -372,4 +460,3 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/16
-

@@ -1,28 +1,68 @@
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+
+const Login = lazy(() => import('./pages/auth/Login'));
+const Register = lazy(() => import('./pages/auth/Register'));
+const PhoneVerification = lazy(() => import('./pages/auth/PhoneVerification'));
+const ProfileSetup = lazy(() => import('./pages/auth/ProfileSetup'));
+const OnboardingTutorial = lazy(() => import('./pages/auth/OnboardingTutorial'));
+const Landing = lazy(() => import('./pages/Landing'));
+const BuyerDashboard = lazy(() => import('./pages/buyer/BuyerDashboard'));
+const CreateRequest = lazy(() => import('./pages/buyer/CreateRequest'));
+const SourcingEventDetail = lazy(() => import('./pages/buyer/SourcingEventDetail'));
+const SupplierDashboard = lazy(() => import('./pages/supplier/SupplierDashboard'));
+const OpportunitiesPage = lazy(() => import('./pages/supplier/OpportunitiesPage'));
+const OpportunityDetail = lazy(() => import('./pages/supplier/OpportunityDetail'));
+const SubmitProposal = lazy(() => import('./pages/supplier/SubmitProposal'));
+const Support = lazy(() => import('./pages/Support'));
+
 function App() {
   return (
-    <div className="min-h-screen bg-brand-secondary text-text-primary font-sans flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-surface-base p-8 rounded-lg shadow-sm border border-gray-200">
-        <h1 className="font-serif text-4xl mb-2 text-brand-primary">O Leilão</h1>
-        <p className="text-text-secondary mb-6">Marketplace Reverso MVP</p>
-        
-        <div className="space-y-4">
-          <div className="p-4 bg-surface-subtle rounded border border-gray-100">
-            <h2 className="font-medium mb-1">Status do Frontend</h2>
-            <p className="text-sm text-text-muted">Inicializado com sucesso.</p>
-          </div>
-          
-          <div className="flex gap-3">
-            <button className="flex-1 px-4 py-2 bg-brand-primary text-white rounded hover:bg-gray-800 transition-colors cursor-not-allowed opacity-50">
-              Entrar
-            </button>
-            <button className="flex-1 px-4 py-2 border border-brand-primary text-brand-primary rounded hover:bg-gray-50 transition-colors cursor-not-allowed opacity-50">
-              Cadastrar
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+    <AuthProvider>
+      <Router>
+        <Suspense
+          fallback={(
+            <div className="min-h-screen bg-ink text-zinc-300 flex items-center justify-center font-sans">
+              Carregando tela...
+            </div>
+          )}
+        >
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/verify-phone" element={<PhoneVerification />} />
+            <Route path="/support" element={<Support />} />
+
+            {/* Shared authenticated onboarding routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/onboarding/profile" element={<ProfileSetup />} />
+              <Route path="/onboarding/tutorial" element={<OnboardingTutorial />} />
+            </Route>
+
+            {/* Buyer Routes */}
+            <Route element={<ProtectedRoute requiredRole="buyer" />}>
+              <Route path="/buyer/dashboard" element={<BuyerDashboard />} />
+              <Route path="/dashboard" element={<BuyerDashboard />} />
+              <Route path="/create-request" element={<CreateRequest />} />
+              <Route path="/sourcing-events/:id" element={<SourcingEventDetail />} />
+            </Route>
+
+            {/* Supplier Routes */}
+            <Route element={<ProtectedRoute requiredRole="supplier" />}>
+              <Route path="/supplier/dashboard" element={<SupplierDashboard />} />
+              <Route path="/supplier/opportunities" element={<OpportunitiesPage />} />
+              <Route path="/supplier/opportunities/:id" element={<OpportunityDetail />} />
+              <Route path="/supplier/submit-proposal/:id" element={<SubmitProposal />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </Router>
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;

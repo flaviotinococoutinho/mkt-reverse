@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['prometheus:9090']
+
+  # API Gateway (container)
+  - job_name: 'api-gateway'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['api-gateway:8080']
+
+  # Microservices profile (optional)
+  - job_name: 'user-management'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['user-management:8080']
+
+  - job_name: 'sourcing-management'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['sourcing-management:8080']

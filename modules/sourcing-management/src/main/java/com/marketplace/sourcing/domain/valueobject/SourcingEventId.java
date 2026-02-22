@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.util.Objects;
-import java.util.UUID;
+import java.util.Objects;
 
 /**
  * Sourcing Event ID Value Object
@@ -30,37 +30,37 @@ import java.util.UUID;
 public class SourcingEventId implements Serializable {
 
     @Column(name = "id", nullable = false, updatable = false)
-    private UUID value;
+    private Long value;
 
     /**
      * Generates a new unique SourcingEventId
      */
     public static SourcingEventId generate() {
-        return new SourcingEventId(UUID.randomUUID());
+        // Deprecated path: prefer injecting IdGenerator in application layer.
+        return new SourcingEventId(System.nanoTime());
     }
 
     /**
      * Creates a SourcingEventId from an existing UUID
      */
-    public static SourcingEventId of(UUID uuid) {
-        if (uuid == null) {
-            throw new IllegalArgumentException("UUID cannot be null");
+    public static SourcingEventId of(long id) {
+        if (id <= 0) {
+            throw new IllegalArgumentException("id must be positive");
         }
-        return new SourcingEventId(uuid);
+        return new SourcingEventId(id);
     }
 
     /**
      * Creates a SourcingEventId from a string representation
      */
-    public static SourcingEventId of(String uuidString) {
-        if (uuidString == null || uuidString.trim().isEmpty()) {
-            throw new IllegalArgumentException("UUID string cannot be null or empty");
+    public static SourcingEventId of(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            throw new IllegalArgumentException("id string cannot be null or empty");
         }
-        
         try {
-            return new SourcingEventId(UUID.fromString(uuidString.trim()));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid UUID format: " + uuidString, e);
+            return of(Long.parseLong(raw.trim()));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid id format: " + raw, e);
         }
     }
 
@@ -68,7 +68,7 @@ public class SourcingEventId implements Serializable {
      * Returns the string representation of the UUID
      */
     public String asString() {
-        return value.toString();
+        return String.valueOf(value);
     }
 
     @Override
@@ -86,7 +86,6 @@ public class SourcingEventId implements Serializable {
 
     @Override
     public String toString() {
-        return value.toString();
+        return String.valueOf(value);
     }
 }
-

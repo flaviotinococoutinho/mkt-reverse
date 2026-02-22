@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres-main:5432/marketplace_main
+    username: marketplace_user
+    password: marketplace_pass
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+  redis:
+    host: redis
+    port: 6379
+
+  kafka:
+    bootstrap-servers: kafka:29092
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

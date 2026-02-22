@@ -1,0 +1,43 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: mkt-reverse-api
+  main:
+    allow-bean-definition-overriding: true
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/mkt_reverse}
+    username: ${DB_USER:mkt_reverse}
+    password: ${DB_PASSWORD:mkt_reverse}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        format_sql: true
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  health:
+    elasticsearch:
+      enabled: false
+    elasticsearch-client-health-indicator:
+      enabled: false
+    # Redis is not required for the current MVP slice (and may not be running in local/dev).
+    redis:
+      enabled: false
+
+logging:
+  pattern:
+    level: "%5p [corr=%X{correlationId:-}]"

@@ -1,0 +1,21 @@
+# Java / Maven
+target/
+**/target/
+.classpath
+.project
+.settings/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Local env
+.env
+
+## NOTE
+# ClawRAG is NOT part of this repository. Install it separately under your
+# development folder (e.g., ~/development/ClawRag).

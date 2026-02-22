@@ -1,0 +1,24 @@
+services:
+  postgres-main:
+    image: postgres:16-alpine
+    container_name: mkt-reverse-postgres-main
+    environment:
+      POSTGRES_DB: marketplace_main
+      POSTGRES_USER: marketplace_user
+      POSTGRES_PASSWORD: marketplace_pass
+      POSTGRES_MULTIPLE_DATABASES: user_management,sourcing_management
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_main_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro
+      - ./docker/postgres/init-schemas.sql:/docker-entrypoint-initdb.d/init-schemas.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketplace_user -d marketplace_main"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_main_data:
+    driver: local

@@ -1,26 +1,82 @@
-# Marketplace Reverso - Plataforma B2B Enterprise
+# QueroJá — Marketplace Reverso (C2B) — Monorepo
 
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.java.net/projects/jdk/21/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.1-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg)](https://docs.docker.com/compose/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## 🎯 Visão Geral
 
-Plataforma de **Marketplace Reverso B2B** de classe enterprise, onde compradores publicam necessidades e fornecedores competem através de leilões reversos, RFQs (Request for Quotation) e negociações diretas. A plataforma facilita contratos e leilões **sem processar pagamentos**, focando na conexão e facilitação de negócios.
+O **QueroJá** é um **marketplace reverso C2B (buyer-first)** para produtos físicos de nicho (ex.: **Colecionáveis**, **Autopeças**, **Moda Circular**).
 
-### 🚀 Principais Funcionalidades
+**Modelo core (C2B):**
 
-- **🔄 Leilões Reversos Inteligentes** - Múltiplos tipos de leilão com IA
-- **📋 Sistema RFQ Avançado** - Request for Quotation com qualificação automática
-- **🤝 Contratos Inteligentes** - Smart contracts na blockchain para automação
-- **🧠 IA Integrada** - Recomendações, qualificação e análise preditiva
-- **⚡ Arquitetura Enterprise** - Microserviços, DDD, CQRS, Event Sourcing
-- **🔒 Segurança Avançada** - JWT, OAuth2, compliance LGPD
-- **📊 Analytics em Tempo Real** - Dashboards e insights de negócio
+- O **comprador** publica uma **Intenção (BuyerIntent)** com categoria (MCC / taxonomia interna) e atributos.
+- **Vendedores** competem enviando **Propostas (SellerProposal)**.
+- O comprador **seleciona** uma proposta (e/ou negocia via chat) e o fluxo segue para **Contrato & Liquidação** (com **Escrow** quando habilitado).
+
+**Diferenciais pretendidos (produto):**
+
+- Curadoria por categoria usando **MCC (ISO 18245)** + schema de atributos.
+- Reputação bilateral.
+- Pagamento garantido via **Escrow** (pilar do roadmap, com foco em segurança e redução de fraude).
+
+## ✅ Current MVP (Implementado hoje)
+
+O **slice funcional atual** (testado e demonstrável) foca no fluxo de *Sourcing*:
+
+1) **Buyer** cria uma solicitação (*Sourcing Event*)
+2) **Supplier** envia uma proposta (*Response*)
+3) **Buyer** aceita uma proposta
+
+Superfícies implementadas:
+- Backend: `application/api-gateway` + `modules/sourcing-management`
+- Frontend: `application/web-app` (React + Vite + TypeScript)
+
+### Rodar local (autoridade: `AGENTS.md`)
+
+```bash
+cd /Users/flaviocoutinho/development/mkt-reverse
+source "$HOME/.sdkman/bin/sdkman-init.sh"
+sdk env
+
+# Infra mínima (Postgres)
+make dev-local-up
+
+# Backend (API Gateway)
+# Primeira vez (ou depois de um clean): instale os módulos dependentes no ~/.m2
+mvn -pl application/api-gateway -am install -DskipTests
+mvn -pl application/api-gateway spring-boot:run -Dspring-boot.run.profiles=local
+
+# Frontend
+cd application/web-app
+npm install
+npm run dev
+```
+
+Endpoints úteis:
+- REST: `http://localhost:8081/api/v1/...`
+- GraphQL: `POST http://localhost:8081/graphql`
+
+### Escopo do MVP (importante)
+
+Este repositório **não assume** (ainda) as peças “enterprise” clássicas (Kafka/ES/K8s/etc.). O MVP é deliberadamente enxuto:
+
+- **Sem e-mail** no MVP.
+- **Sem upload/URLs de imagem** no MVP.
+- Eventing assíncrono via **Transactional Outbox Light** (tabela `event_outbox` + scheduler), sem Debezium inicialmente.
+- Infra local: **Docker Compose + Traefik**.
 
 ## 🏗️ Arquitetura
+
+### Pilares (imutáveis)
+
+- **Backend:** Java 21 + Spring Boot 3.3, com suporte a **GraalVM Native Image** (startup/footprint).
+- **Banco:** PostgreSQL 15/16 com uso intensivo de **JSONB** (atributos variáveis) + **RLS** (multi-tenant/isolamento) + particionamento (range) para dados volumosos (intents/proposals/eventos).
+- **Comunicação:** REST/HTTP stateless por padrão; **WebSocket** apenas para Chat/Notificações críticas.
+- **Assíncrono:** Transactional Outbox Light.
+- **Arquitetura de código:** Clean Architecture + DDD + package-by-feature (domínio sem dependências de Spring).
 
 ### Monorepo com Packaged by Features
 
@@ -31,52 +87,47 @@ mkt-reverse/
 │   ├── shared-infrastructure/      # Infraestrutura comum
 │   └── shared-events/              # Eventos de domínio
 ├── modules/                        # Módulos de negócio
-│   ├── user-management/            # USR - Gestão de usuários
-│   ├── sourcing-management/        # SRC - Gestão de sourcing
-│   ├── supplier-management/        # SUP - Gestão de fornecedores
-│   ├── auction-engine/             # AUC - Engine de leilões
-│   ├── contract-management/        # CTR - Gestão de contratos
-│   ├── notification-service/       # NOT - Serviço de notificações
-│   ├── analytics-service/          # ANA - Analytics e BI
-│   ├── payment-integration/        # PAY - Integração pagamentos
-│   ├── blockchain-integration/     # BLK - Integração blockchain
-│   └── erp-integration/           # ERP - Integração ERP
+│   ├── user-management/            # CORE - Identidade + (futuro) KYC/Risco
+│   ├── sourcing-management/        # CORE (hoje) - Sourcing Event/Response (precursor de Intent/Proposal)
+│   ├── opportunity-service/        # CORE (hoje) - Descoberta/lista para suppliers
+│   ├── notification-service/       # ROADMAP - Notificações (somente críticas via websocket quando necessário)
+│   ├── payment-integration/        # ROADMAP - Pagamentos/escrow via PSP
+│   └── item-catalog/               # ROADMAP - Taxonomia MCC + schemas de atributos
 ├── application/                    # Camada de aplicação
-│   ├── api-gateway/               # Gateway principal
-│   └── web-app/                   # Aplicação web React
+│   ├── api-gateway/               # CORE - Gateway principal
+│   └── web-app/                   # CORE - Aplicação web React
 └── docker/                        # Configurações Docker
 ```
+
+**Legenda de escopo**
+- **CORE**: necessário para os fluxos descritos nos documentos (solicitação → proposta → aceite → escrow → entrega → avaliação/disputa).
+- **CORE\***: obrigatório somente quando o escrow/pagamentos for habilitado no MVP.
+- **PÓS-MVP/FUTURO**: expansão natural, não bloqueia a validação do produto.
 
 ### Stack Tecnológica
 
 #### Backend
 - **Java 21** (LTS) - Linguagem principal
-- **Spring Boot 3.2.1** - Framework principal
-- **Spring Cloud 2023.0.0** - Microserviços
-- **Spring Security 6.2** - Segurança
+- **Spring Boot 3.3.x** - Framework principal
+- **Spring Security 6.x** - Segurança
 - **Spring Data JPA** - Persistência
-- **Hibernate 6.4** - ORM
+- **Hibernate 6.x** - ORM
 
 #### Database & Storage
-- **PostgreSQL 16** - Banco principal
-- **Redis 7** - Cache e sessões
-- **Elasticsearch 8.11** - Busca e indexação
-- **MinIO** - Object storage (S3 compatible)
+- **PostgreSQL 15/16** - Banco principal
+- **JSONB** - Atributos variáveis e schemas por categoria
+- **RLS** - Isolamento multi-tenant/usuário
 
 #### Messaging & Events
-- **Apache Kafka 7.5** - Event streaming
-- **Spring Kafka** - Integração Kafka
-- **Event Sourcing** - Padrão de eventos
+- **Transactional Outbox Light** (tabela `event_outbox` + scheduler)
 
 #### Observability
-- **Prometheus** - Métricas
-- **Grafana** - Dashboards
-- **Jaeger** - Distributed tracing
-- **Micrometer** - Application metrics
+- **Micrometer** - métricas
+- **Correlation ID** via `X-Correlation-Id`
 
 #### DevOps & Infrastructure
 - **Docker & Docker Compose** - Containerização
-- **Nginx** - Load balancer e proxy
+- **Traefik** - Reverse proxy / TLS / LB (MVP)
 - **Flyway** - Database migrations
 - **Maven** - Build tool
 
@@ -106,39 +157,18 @@ cp .env.example .env
 nano .env
 ```
 
-### 3. Iniciar Infraestrutura
+### 3. Iniciar Infra (MVP)
+
+Use os alvos do `Makefile` (ver `AGENTS.md` como fonte de verdade):
 
 ```bash
-# Iniciar todos os serviços de infraestrutura
-docker-compose up -d postgres-main postgres-events redis kafka elasticsearch prometheus grafana
-
-# Aguardar serviços ficarem prontos (health checks)
-docker-compose ps
+make dev-local-up
 ```
 
-### 4. Build e Deploy dos Módulos
+### 4. Verificar
 
 ```bash
-# Build de todos os módulos
-mvn clean install -DskipTests
-
-# Iniciar serviços da aplicação
-docker-compose up -d api-gateway user-management sourcing-management
-```
-
-### 5. Verificar Deployment
-
-```bash
-# Health check dos serviços
-curl http://localhost:8081/actuator/health  # API Gateway
-curl http://localhost:8082/actuator/health  # User Management
-curl http://localhost:8083/actuator/health  # Sourcing Management
-
-# Acessar interfaces web
-open http://localhost:3000    # Grafana (admin/admin123)
-open http://localhost:5601    # Kibana
-open http://localhost:8080    # Kafka UI
-open http://localhost:9001    # MinIO Console
+curl http://localhost:8081/actuator/health
 ```
 
 ## 🔧 Desenvolvimento
@@ -211,21 +241,9 @@ mvn spring-boot:run -pl modules/user-management -Dspring-boot.run.profiles=dev
 
 ### Métricas e Dashboards
 
-- **Grafana**: http://localhost:3000 (admin/admin123)
-  - Dashboard de aplicação
-  - Métricas de negócio
-  - Performance de banco de dados
-  - Métricas de Kafka
-
-- **Prometheus**: http://localhost:9090
-  - Métricas raw
-  - Targets e health checks
-  - Alerting rules
-
-- **Jaeger**: http://localhost:16686
-  - Distributed tracing
-  - Performance de requests
-  - Análise de latência
+> **Nota (MVP):** o ambiente local mínimo (`make dev-local-up`) sobe apenas o **Postgres**.
+> Grafana/Prometheus/Jaeger e demais componentes de observabilidade são parte do **roadmap**
+> e podem existir em composes alternativos.
 
 ### Logs Estruturados
 
@@ -236,17 +254,23 @@ docker-compose logs -f user-management
 
 # Logs de infraestrutura
 docker-compose logs -f postgres-main
-docker-compose logs -f kafka
+
+# (roadmap) quando houver stack de mensageria/observabilidade no compose
+# docker-compose logs -f kafka
 ```
 
 ## 🔒 Segurança
 
 ### Autenticação e Autorização
 
-- **JWT Tokens** com refresh token
-- **OAuth2** para integração com terceiros
-- **Role-based Access Control (RBAC)**
-- **Multi-factor Authentication (MFA)**
+> **Nota (MVP):** a implementação real de auth/roles deve ser verificada no código.
+> Esta seção descreve o **alvo** do produto; nem todos os itens abaixo estão presentes
+> no slice atual.
+
+- **JWT Tokens** (alvo) com refresh token
+- **OAuth2** (roadmap) para integração com terceiros
+- **Role-based Access Control (RBAC)** (alvo)
+- **Multi-factor Authentication (MFA)** (roadmap)
 
 ### Compliance
 
@@ -314,25 +338,25 @@ mvn test jacoco:report
 
 ## 📈 Roadmap
 
-### Fase 1 - MVP (Q1 2024)
+### Fase 1 - MVP (2026)
 - [x] Arquitetura base e infraestrutura
 - [x] Módulo de usuários
-- [ ] Sistema básico de sourcing
-- [ ] Leilões reversos simples
+- [x] Sistema básico de sourcing (Sourcing Event → Response → Accept)
+- [x] Web app (UI) cobrindo o fluxo ponta-a-ponta (Buyer + Supplier)
 
-### Fase 2 - Core Features (Q2 2024)
+### Fase 2 - Core Features (roadmap)
 - [ ] Smart contracts básicos
 - [ ] Sistema de notificações
 - [ ] Analytics básico
 - [ ] Mobile app
 
-### Fase 3 - AI & Advanced (Q3 2024)
+### Fase 3 - AI & Advanced (roadmap)
 - [ ] IA para recomendações
 - [ ] Blockchain avançada
 - [ ] Integração ERP
 - [ ] Advanced analytics
 
-### Fase 4 - Scale & Global (Q4 2024)
+### Fase 4 - Scale & Global (roadmap)
 - [ ] Multi-tenancy
 - [ ] Internacionalização
 - [ ] Advanced security
@@ -349,7 +373,6 @@ Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICE
 
 ## 📞 Suporte
 
-- **Email**: suporte@marketplace-reverso.com
 - **Slack**: #marketplace-reverso
 - **Issues**: [GitHub Issues](https://github.com/flaviotinococoutinho/mkt-reverse/issues)
 

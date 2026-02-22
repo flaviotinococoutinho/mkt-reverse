@@ -127,6 +127,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <!-- Avoid duplicate org.json.JSONObject on test classpath -->
+                <exclusion>
+                    <groupId>com.vaadin.external.google</groupId>
+                    <artifactId>android-json</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         
         <dependency>
@@ -164,20 +171,28 @@
             <artifactId>wiremock-jre8</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!--
+              IMPORTANT (MVP / monolith mode):
+              This module is consumed as a *library* by application/api-gateway.
+              Therefore it must publish a regular JAR (NOT a Spring Boot fat-jar).
+
+              The runnable Spring Boot app for local/dev is api-gateway.
+            -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
+                    <skip>true</skip>
                 </configuration>
             </plugin>
             
@@ -196,4 +211,3 @@
         </plugins>
     </build>
 </project>
-
