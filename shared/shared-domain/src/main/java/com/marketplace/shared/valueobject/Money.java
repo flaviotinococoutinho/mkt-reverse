@@ -61,6 +61,10 @@ public class Money {
         return of(BigDecimal.valueOf(amount), currency);
     }
 
+    public static Money fromCents(long cents, CurrencyCode currency) {
+        return of(BigDecimal.valueOf(cents).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP), currency);
+    }
+
     public static Money zero(CurrencyCode currency) {
         return of(BigDecimal.ZERO, currency);
     }

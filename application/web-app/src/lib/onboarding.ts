@@ -2,6 +2,9 @@ import type { User } from '../services/authService';
 
 export function resetOnboardingState() {
   localStorage.removeItem('onboarding_completed');
+  localStorage.removeItem('onboarding_phone_verified');
+  localStorage.removeItem('onboarding_profile_done');
+  localStorage.removeItem('onboarding_tutorial_done');
 }
 
 export function isOnboardingCompleted(): boolean {
@@ -12,7 +15,24 @@ export function completeOnboarding() {
   localStorage.setItem('onboarding_completed', 'true');
 }
 
-export function getRoleDashboardPath(user: User): string {
+export function markPhoneVerified() {
+  localStorage.setItem('onboarding_phone_verified', 'true');
+}
+
+export function markProfileDone() {
+  localStorage.setItem('onboarding_profile_done', 'true');
+}
+
+export function markTutorialDone() {
+  localStorage.setItem('onboarding_tutorial_done', 'true');
+  completeOnboarding();
+}
+
+export function getRoleDashboardPath(user: User | null): string {
+  if (!user) {
+    return '/buyer/dashboard';
+  }
+
   if (user.role === 'supplier') {
     return '/supplier/dashboard';
   }

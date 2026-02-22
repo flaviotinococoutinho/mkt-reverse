@@ -1,5 +1,10 @@
 package com.marketplace.sourcing.application.service;
 
+import java.time.Instant;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
 import com.marketplace.shared.id.IdGenerator;
 import com.marketplace.shared.paging.PageResult;
 import com.marketplace.shared.valueobject.CurrencyCode;
@@ -9,12 +14,19 @@ import com.marketplace.sourcing.domain.model.SourcingEvent;
 import com.marketplace.sourcing.domain.model.SupplierResponse;
 import com.marketplace.sourcing.domain.repository.SourcingEventRepository;
 import com.marketplace.sourcing.domain.repository.SupplierResponseRepository;
-import com.marketplace.sourcing.domain.valueobject.*;
-import jakarta.transaction.Transactional;
-import org.springframework.stereotype.Service;
+import com.marketplace.sourcing.domain.valueobject.BuyerContext;
+import com.marketplace.sourcing.domain.valueobject.OfferCondition;
+import com.marketplace.sourcing.domain.valueobject.ProductSpecification;
+import com.marketplace.sourcing.domain.valueobject.ShippingMode;
+import com.marketplace.sourcing.domain.valueobject.SourcingEventId;
+import com.marketplace.sourcing.domain.valueobject.SourcingEventSettings;
+import com.marketplace.sourcing.domain.valueobject.SourcingEventStatus;
+import com.marketplace.sourcing.domain.valueobject.SourcingEventTimeline;
+import com.marketplace.sourcing.domain.valueobject.SourcingEventType;
+import com.marketplace.sourcing.domain.valueobject.SpecAttribute;
+import com.marketplace.sourcing.domain.valueobject.SupplierResponseId;
 
-import java.time.Instant;
-import java.util.List;
+import jakarta.transaction.Transactional;
 
 /**
  * Default implementation of the Sourcing Event Use Cases.
@@ -95,9 +107,21 @@ public class SourcingEventApplicationService implements SourcingEventUseCases {
     }
 
     @Override
-    public SourcingEvent getEvent(String eventId) {
-        return sourcingEventRepository.findById(eventId)
+    public SourcingEvent getEvent(String eventId, String tenantId) {
+        SourcingEvent event = sourcingEventRepository.findById(eventId)
             .orElseThrow(() -> new IllegalArgumentException("Sourcing event not found: " + eventId));
+            
+        if (tenantId != null && !tenantId.isBlank() && !event.getBuyerContext().getTenantId().equals(tenantId)) {
+            // Security: Prevent access to events from other tenants when tenant context is explicit.
+            throw new IllegalArgumentException("Sourcing event not found");
+        }
+        return event;
+    }
+
+    public void updateEvent(String eventId, String tenantId, String title, String description) {
+        SourcingEvent event = getEvent(eventId, tenantId);
+        event.updateDetails(title, description, null);
+        sourcingEventRepository.save(event);
     }
 
     @Override
@@ -150,6 +174,7 @@ public class SourcingEventApplicationService implements SourcingEventUseCases {
     public SupplierResponseId submitResponse(
         String eventId,
         String supplierId,
+        String supplierOrganizationId,
         Money offerAmount,
         String message,
         Integer leadTimeDays,
@@ -158,10 +183,17 @@ public class SourcingEventApplicationService implements SourcingEventUseCases {
         ShippingMode shippingMode,
         List<SpecAttribute> attributes
     ) {
-        SourcingEvent event = getEvent(eventId);
+        // We might need to fetch tenantId from somewhere or pass it in. 
+        // For submitResponse, usually the supplier interacts with a public event or invited event.
+        // Assuming we look up the event first.
+        SourcingEvent event = sourcingEventRepository.findById(eventId)
+             .orElseThrow(() -> new IllegalArgumentException("Sourcing event not found: " + eventId));
+        
         if (!event.acceptsResponses()) {
             throw new IllegalStateException("Event is not accepting responses");
         }
+        
+        event.validateBidder(supplierOrganizationId);
 
         // Delegate logic to domain
         event.validateProposalAttributes(attributes);
@@ -188,8 +220,12 @@ public class SourcingEventApplicationService implements SourcingEventUseCases {
 
     @Override
     @Transactional
-    public void acceptResponse(String eventId, String responseId) {
-        SourcingEvent event = getEvent(eventId);
+    public void acceptResponse(String eventId, String responseId, String tenantId) {
+        SourcingEvent event = (tenantId == null || tenantId.isBlank())
+            ? sourcingEventRepository.findById(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Sourcing event not found: " + eventId))
+            : getEvent(eventId, tenantId);
+
         SupplierResponse response = supplierResponseRepository.findById(SupplierResponseId.of(responseId))
             .orElseThrow(() -> new IllegalArgumentException("Response not found: " + responseId));
 

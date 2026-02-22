@@ -101,8 +101,10 @@ public class OpenSearchOpportunityRepository implements OpportunitySearchReposit
 
             return new PageResult<>(events, page, size, total);
 
-        } catch (IOException e) {
-            log.error("Search failed", e);
+        } catch (Exception e) {
+            // OpenSearch can fail with transport/runtime exceptions (connection refused,
+            // missing index, auth, deserialization). For MVP we degrade gracefully to DB fallback.
+            log.warn("OpenSearch search failed, falling back to primary repository", e);
             return PageResult.empty();
         }
     }

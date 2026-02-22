@@ -30,7 +30,37 @@ public final class SpecAttribute {
         this.key = key.trim();
         this.type = Objects.requireNonNull(type, "type is required");
         this.unit = unit != null && !unit.trim().isEmpty() ? unit.trim() : null;
+        
+        validateTypeConsistency(type, value);
         this.value = value;
+    }
+
+    private void validateTypeConsistency(SpecAttributeType type, Object value) {
+        if (value == null) return; // Allow null values? Or should strict attributes require values? Assuming nullable for now.
+
+        switch (type) {
+            case NUMBER:
+            case WEIGHT:
+            case VOLUME:
+            case VOLTAGE:
+                if (!(value instanceof Number)) {
+                    throw new IllegalArgumentException("Attribute " + type + " requires a numeric value");
+                }
+                break;
+            case BOOLEAN:
+                if (!(value instanceof Boolean)) {
+                    throw new IllegalArgumentException("Attribute " + type + " requires a boolean value");
+                }
+                break;
+            case TEXT:
+            case ENUM:
+            case COLOR:
+            case LANGUAGE:
+                if (!(value instanceof String)) {
+                    throw new IllegalArgumentException("Attribute " + type + " requires a string value");
+                }
+                break;
+        }
     }
 
     public String getKey() {

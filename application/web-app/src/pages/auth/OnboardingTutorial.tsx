@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, CircleCheck } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../context/useAuth';
-import { getRoleDashboardPath } from '../../lib/onboarding';
+import { getRoleDashboardPath, markTutorialDone } from '../../lib/onboarding';
 
 type TutorialStep = {
   title: string;
@@ -57,7 +57,7 @@ export default function OnboardingTutorial() {
 
   const goNext = () => {
     if (isLast) {
-      localStorage.setItem('onboardingTutorialDone', 'true');
+      markTutorialDone();
       navigate(dashboardPath);
       return;
     }
@@ -88,7 +88,7 @@ export default function OnboardingTutorial() {
             type="button"
             variant="ghost"
             onClick={() => {
-              localStorage.setItem('onboardingTutorialDone', 'true');
+              markTutorialDone();
               navigate(dashboardPath);
             }}
           >

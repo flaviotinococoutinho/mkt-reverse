@@ -145,6 +145,8 @@ make sourcing-service
 make supplier-service
 make api-gateway-local
 make web-app-local
+make smoke-mvp
+make smoke-mvp-auth
 
 make generate-docs
 make clean
@@ -186,12 +188,17 @@ cp .env.example .env
 npm install
 npm run dev
 npm run build
+npm run test
 npm run preview
 npm run lint
 npm run smoke:api
+npm run smoke:api:auth
+npm run smoke:ui
 ```
 
-Note: `smoke:api` expects `api-gateway` at `http://localhost:8081` (override with `API_BASE_URL`; set `SMOKE_INCLUDE_ATTRIBUTES=1` to include typed attributes).
+Note: `smoke:api` expects `api-gateway` at `http://localhost:8081` (override with `API_BASE_URL`). `smoke:api:auth` sets `SMOKE_AUTH=1`.
+Note: `smoke:ui` is a fast UI routing smoke check and does not require the backend.
+Optional env vars: `API_HEALTH_URL` (defaults from `API_BASE_URL`), `SMOKE_STARTUP_TIMEOUT_MS`, `SMOKE_STARTUP_POLL_MS`, `SMOKE_INCLUDE_ATTRIBUTES=1` (send typed attributes), `SMOKE_AUTH=1` (exercise auth endpoints).
 
 ### 6.3) Opportunity service local run (from modules/opportunity-service/README.md)
 
@@ -214,7 +221,7 @@ npm run test
 npm run test:ci
 ```
 
-Note: dev server proxies `/api` to the API Gateway (default `http://localhost:8080`).
+Note: dev server proxies `/api` to the API Gateway (default `http://localhost:8080`). Override with `VITE_API_TARGET=http://localhost:XXXX npm run dev`.
 
 ### 6.5) Frontend (visual-module) dev server (from frontend/visual-module/package.json)
 
@@ -222,7 +229,10 @@ Note: dev server proxies `/api` to the API Gateway (default `http://localhost:80
 cd frontend/visual-module
 npm install
 npm run dev
+npm run test
 ```
+
+Note: `npm run test` is a placeholder script and exits with status 1.
 
 ### 7) Direct docker-compose logs (from README)
 
@@ -278,6 +288,12 @@ Implemented surfaces:
 - **Object Calisthenics (pragmatic)**
   - Prefer early returns over deep nesting.
   - Prefer meaningful types/value objects over primitives when it reduces ambiguity.
+
+- **Financial & Math Standards (Mandatory)**
+  - **Always use `BigDecimal`** for money, tax rates, percentages, and financial calculations.
+  - **Never use `double` or `float`** for financial values to avoid floating-point precision errors.
+  - **Construction:** Use `new BigDecimal("0.1")` (String constructor) or `BigDecimal.valueOf(long/double)` if needed, but prefer String/Long sources. Avoid `new BigDecimal(double)` directly as it is unpredictable.
+  - `Money` Value Object: Use `Money.of(BigDecimal, CurrencyCode)` or `Money.fromCents(long, CurrencyCode)`.
 
 - **State machine when booleans don’t scale**
   - Prefer explicit enums + transition methods.

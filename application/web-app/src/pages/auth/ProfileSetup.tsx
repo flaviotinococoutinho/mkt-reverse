@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { UserRoundPlus } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { markProfileDone } from '../../lib/onboarding';
 
 export default function ProfileSetup() {
   const navigate = useNavigate();
@@ -27,6 +28,8 @@ export default function ProfileSetup() {
         notifications,
       })
     );
+
+    markProfileDone();
 
     navigate('/onboarding/tutorial');
   };

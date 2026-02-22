@@ -2,7 +2,7 @@
 
 This document tracks mismatches between **documentation/intended architecture** and the **current working MVP**.
 
-Last updated: 2026-02-14
+Last updated: 2026-02-19
 
 ## ✅ What is consistent and working
 
@@ -66,11 +66,13 @@ Recommendation (next increments):
 - For Postgres: add `to_tsvector` full-text search (no external dependency) when needed
 - For attributes: move to JSONB queries + indexes (Postgres)
 
-### 5) Minor code smells in migrated IDs
-Some comments still mention UUID and there was a duplicated import observed in `SourcingEventId`.
+### 5) Minor code smells in migrated IDs (resolved)
+Status:
+- ✅ Cleaned `SourcingEventId` duplicated `Objects` import.
+- ✅ Updated stale UUID wording in ID comments to numeric-id terminology.
 
-Recommendation:
-- Clean comments + imports (no behavior changes).
+Note:
+- No behavior changes were introduced (documentation/cleanliness only).
 
 ## Proposed next steps (prioritized)
 

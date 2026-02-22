@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -6,21 +6,12 @@ import { LogIn } from 'lucide-react';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../context/useAuth';
 import axios from 'axios';
-import { digitsOnly, formatBrazilPhone } from '../../lib/phone';
+import { formatBrazilPhone } from '../../lib/phone';
 import { getNextOnboardingPath, getRoleDashboardPath } from '../../lib/onboarding';
+import { getFriendlyAuthErrorMessage } from '../../lib/authErrorMessage';
+import { isValidBrazilPhone } from '../../lib/authValidation';
 
-type ProblemDetailsLike = {
-  detail?: unknown;
-};
-
-function extractProblemMessage(data: unknown): string | null {
-  if (!data || typeof data !== 'object') return null;
-  const pd = data as ProblemDetailsLike;
-  if (typeof pd.detail === 'string' && pd.detail.trim().length > 0) {
-    return pd.detail;
-  }
-  return null;
-}
+const AUTH_NOTICE_KEY = 'auth.notice';
 
 export default function Login() {
   const [identifier, setIdentifier] = useState('');
@@ -30,9 +21,16 @@ export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const identifierDigits = digitsOnly(identifier);
+  useEffect(() => {
+    const authNotice = sessionStorage.getItem(AUTH_NOTICE_KEY);
+    if (authNotice) {
+      setErrorMessage(authNotice);
+      sessionStorage.removeItem(AUTH_NOTICE_KEY);
+    }
+  }, []);
+
   const identifierError =
-    identifier.length > 0 && (identifierDigits.length < 10 || identifierDigits.length > 11)
+    identifier.length > 0 && !isValidBrazilPhone(identifier)
       ? 'Informe um telefone/WhatsApp válido (10 ou 11 dígitos).'
       : null;
 
@@ -62,7 +60,7 @@ export default function Login() {
       console.error('Login failed', error);
 
       if (axios.isAxiosError(error)) {
-        const msg = extractProblemMessage(error.response?.data);
+        const msg = getFriendlyAuthErrorMessage('login', error.response?.status, error.response?.data);
         setErrorMessage(msg || error.message);
       } else {
         setErrorMessage('Falha ao entrar.');

@@ -10,6 +10,9 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '../../context/useToast';
 import { getEventTypeLabel } from '../../lib/eventType';
 import { formatBrlFromCents } from '../../lib/currency';
+import { formatBrazilPhone } from '../../lib/phone';
+import { validateCreateRequestForm } from '../../lib/createRequestValidation';
+import { buildCreateRequestErrorToast } from '../../lib/createRequestSubmit';
 
 type SourcingEventType = NonNullable<CreateSourcingEventRequest['type']>;
 
@@ -19,6 +22,7 @@ export default function CreateRequest() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'edit' | 'preview'>('edit');
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<CreateSourcingEventRequest>({
     tenantId: user?.tenantId || 'tenant-default',
@@ -45,15 +49,23 @@ export default function CreateRequest() {
       navigate(`/sourcing-events/${response.id}`);
     } catch (error) {
       console.error('Failed to create request:', error);
+      const toastContent = buildCreateRequestErrorToast(error);
       toast({
         level: 'error',
-        title: 'Erro ao criar solicitação',
-        description: 'Revise os campos e tente novamente.',
+        ...toastContent,
       });
     } finally {
       setLoading(false);
     }
   };
+
+  const {
+    contactPhoneError,
+    titleError,
+    descriptionError,
+    quantityError,
+    isInvalidForPreview,
+  } = validateCreateRequestForm(formData);
 
   return (
     <div className="min-h-screen bg-ink text-zinc-200 font-sans">
@@ -74,8 +86,18 @@ export default function CreateRequest() {
             /* Form */
             <form onSubmit={(e) => {
               e.preventDefault();
+              if (isInvalidForPreview) {
+                setValidationMessage('Revise os campos obrigatórios antes de continuar para a pré-visualização.');
+                return;
+              }
+              setValidationMessage(null);
               setStep('preview');
             }} className="space-y-6">
+            {validationMessage ? (
+              <div className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-zinc-100">
+                {validationMessage}
+              </div>
+            ) : null}
             {/* Request Type */}
             <div>
               <label className="block text-sm font-medium text-zinc-300 mb-2">
@@ -119,6 +141,7 @@ export default function CreateRequest() {
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               required
+              error={titleError ?? undefined}
             />
 
             {/* Product Description */}
@@ -141,6 +164,9 @@ export default function CreateRequest() {
                 rows={4}
                 className="w-full px-3 py-2 rounded-md border border-stroke bg-ink/50 text-zinc-200 focus:border-citrus focus:outline-none"
               />
+              {descriptionError ? (
+                <p className="mt-1 text-xs text-danger">{descriptionError}</p>
+              ) : null}
             </div>
 
             {/* Category */}
@@ -167,6 +193,7 @@ export default function CreateRequest() {
                   })
                 }
                 required
+                error={quantityError ?? undefined}
               />
               <Input
                 id="unit"
@@ -247,15 +274,16 @@ export default function CreateRequest() {
                 placeholder="(11) 99999-9999"
                 value={formData.buyerContactPhone}
                 onChange={(e) =>
-                  setFormData({ ...formData, buyerContactPhone: e.target.value })
+                  setFormData({ ...formData, buyerContactPhone: formatBrazilPhone(e.target.value) })
                 }
                 required
+                error={contactPhoneError ?? undefined}
               />
             </div>
 
             {/* Continue */}
             <div className="pt-4">
-              <Button type="submit" size="lg" className="w-full">
+              <Button type="submit" size="lg" className="w-full" disabled={isInvalidForPreview}>
                 Revisar antes de publicar
               </Button>
             </div>

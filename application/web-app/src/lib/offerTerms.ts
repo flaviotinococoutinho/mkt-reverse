@@ -2,13 +2,16 @@ export const CONDITION_LABELS = {
   NEW: 'Novo',
   USED: 'Usado',
   REFURBISHED: 'Recondicionado',
-  MADE_TO_ORDER: 'Sob Encomenda',
+  FOR_PARTS: 'Para Peças',
+  UNKNOWN: 'Não Informado',
 } as const;
 
 export const SHIPPING_MODE_LABELS = {
-  SELLER: 'Vendedor (Frete Grátis)',
-  BUYER: 'Comprador (Frete por conta)',
-  THIRD_PARTY: 'Terceiros (Frete a combinar)',
+  PICKUP: 'Retirada no Local',
+  DELIVERY: 'Entrega Local',
+  SHIPPING: 'Envio/Transportadora',
+  DIGITAL: 'Entrega Digital',
+  UNKNOWN: 'A Combinar',
 } as const;
 
 export type ConditionCode = keyof typeof CONDITION_LABELS;

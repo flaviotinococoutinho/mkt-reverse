@@ -220,6 +220,71 @@ Esta PR representa a implementação completa da interface web (frontend React) 
 
 ---
 
+## Atualização diária — 2026-02-16
+
+### Objetivo do dia
+Corrigir regressões de compilação no fluxo de autenticação/onboarding para manter o frontend do MVP demonstrável e pronto para evolução incremental.
+
+### Correções realizadas
+- Ajuste de import type-safe em `AuthContext.tsx` para compatibilidade com `verbatimModuleSyntax`.
+- Correção do fluxo de onboarding em `onboarding.ts`:
+  - adicionadas funções explícitas de estado (`markPhoneVerified`, `markProfileDone`, `markTutorialDone`);
+  - `getRoleDashboardPath` agora aceita `User | null` sem quebrar build.
+- Integração das novas funções nos passos de onboarding:
+  - `PhoneVerification.tsx` passa a usar `markPhoneVerified` (agora existente);
+  - `ProfileSetup.tsx` passa a chamar `markProfileDone`;
+  - `OnboardingTutorial.tsx` passa a chamar `markTutorialDone` no finalizar/pular.
+
+### Validação
+Comando executado com sucesso:
+```bash
+cd application/web-app
+npm run lint && npm run build
+```
+Resultado: ✅ build concluído com sucesso (exit code 0).
+
+### Impacto
+- Remove bloqueios de TypeScript que impediam entregas diárias.
+- Mantém o fluxo de cadastro/login/onboarding funcional para próximas tarefas de MVP.
+
 **Status**: ✅ MVP Frontend implementado e funcional
-**Data**: 2026-02-14
+**Data**: 2026-02-16
+**Autor**: OpenClaw Agent
+
+---
+
+## Atualização diária — 2026-02-18
+
+### Objetivo do dia
+Endurecer a confiabilidade do frontend com cobertura de validações e smoke checks de rotas/sessão para reduzir regressões no fluxo MVP.
+
+### Entregas realizadas
+- Adicionados e validados testes unitários de utilitários críticos:
+  - `src/lib/authValidation.test.ts`
+  - `src/lib/createRequestValidation.test.ts`
+  - `src/lib/submitProposalValidation.test.ts`
+  - `src/lib/problemDetails.test.ts`
+  - `src/lib/responseFilters.test.ts`
+  - `src/lib/marketplaceLabels.test.ts`
+  - `src/lib/onboarding.test.ts`
+- Cobertura funcional consolidada: **52 testes passando** em 7 arquivos.
+- Smoke de rotas de UI validado para buyer/supplier/public/protected.
+- README do `web-app` atualizado para refletir os comandos de qualidade/segurança de sessão:
+  - `npm run test`
+  - `npm run smoke:api:auth:invalid`
+  - `npm run smoke:session`
+
+### Validação executada
+```bash
+cd application/web-app
+npm run lint && npm run test && npm run smoke:ui
+```
+Resultado: ✅ todos os checks passaram.
+
+### Impacto
+- Menor risco de regressões silenciosas em login/cadastro, criação de solicitação e envio de proposta.
+- Melhor rastreabilidade para demo do MVP com checks repetíveis e rápidos.
+
+**Status**: ✅ Qualidade de frontend reforçada
+**Data**: 2026-02-18
 **Autor**: OpenClaw Agent

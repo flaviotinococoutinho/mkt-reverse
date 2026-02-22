@@ -5,6 +5,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg)](https://docs.docker.com/compose/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![MVP Daily Guardrail](https://img.shields.io/badge/CI-MVP%20Daily%20Guardrail-0A0E14?logo=githubactions&logoColor=white)](./.github/workflows/mvp-daily-guardrail.yml)
 
 ## 🎯 Visão Geral
 
@@ -58,6 +59,50 @@ npm run dev
 Endpoints úteis:
 - REST: `http://localhost:8081/api/v1/...`
 - GraphQL: `POST http://localhost:8081/graphql`
+
+### Guardrails de qualidade do MVP (local + CI)
+
+Para evitar regressão no fluxo crítico (buyer cria solicitação → supplier envia proposta → buyer aceita), use os guardrails abaixo:
+
+```bash
+# 1) suíte backend (api-gateway)
+mvn -pl application/api-gateway -am test
+
+# 2) smoke com relatório + assert de SLA/status final
+make smoke-mvp-report-check
+
+# 3) fluxo diário consolidado (1 + 2)
+make verify-mvp-daily
+```
+
+O workflow de CI correspondente está em:
+- `.github/workflows/mvp-daily-guardrail.yml`
+
+Artefatos gerados/localizados:
+- Relatório de smoke: `application/web-app/build/smoke-report.json`
+- Log da API no CI: `/tmp/api-gateway.log`
+
+Variáveis úteis para ajustar limiares de execução:
+- `SMOKE_MAX_TOTAL_MS` (default `60000` local; CI pode elevar)
+- `SMOKE_MAX_STEP_MS` (default `25000`)
+- `SMOKE_REPORT_PATH` (default `application/web-app/build/smoke-report.json`)
+
+#### Runbook rápido de falhas comuns do smoke
+
+- **API indisponível (`ECONNREFUSED` / timeout no `smoke:api`)**
+  1. Suba o Postgres local: `make dev-local-up`
+  2. Suba a API: `mvn -pl application/api-gateway spring-boot:run -Dspring-boot.run.profiles=local`
+  3. Valide health: `curl http://localhost:8081/actuator/health`
+
+- **Erro de schema de atributos (400 `VALIDATION_ERROR`) ao criar solicitação**
+  - O MVP usa validação estrita de atributos tipados.
+  - Reexecute sem atributos opcionais para isolar: `SMOKE_INCLUDE_ATTRIBUTES=0 make smoke-mvp-report-check`
+  - Se necessário, ajuste o payload para chaves/tipos aceitos pela categoria MCC.
+
+- **Token inválido/expirado (401/403) em endpoints protegidos**
+  - Refaça autenticação no fluxo smoke: `SMOKE_AUTH=1 make smoke-mvp-report-check`
+  - Para validar rejeição esperada de token inválido: `cd application/web-app && npm run smoke:api:auth:invalid`
+  - Em UI, limpe sessão local e relogue (`localStorage` token/user).
 
 ### Escopo do MVP (importante)
 
@@ -283,25 +328,30 @@ docker-compose logs -f postgres-main
 
 ### Estratégia de Testes
 
-- **Unit Tests** - JUnit 5 + Mockito
-- **Integration Tests** - Testcontainers
-- **Contract Tests** - Spring Cloud Contract
-- **E2E Tests** - Selenium + TestNG
+- **Backend (MVP real):**
+  - Unit e integração via **JUnit 5** (módulos Java/Spring)
+  - Slice principal validado em `application/api-gateway` + `modules/sourcing-management`
+- **Frontend (MVP real):**
+  - **Lint** e **build** com Vite/TypeScript
+  - **Smoke API flow** (`application/web-app/scripts/smoke-flow.mjs`) cobrindo:
+    - criar solicitação (buyer)
+    - descobrir oportunidade (supplier)
+    - enviar proposta (supplier)
+    - aceitar proposta (buyer)
+
+> Nota: Contract tests dedicados e E2E browser (Playwright/Cypress/Selenium) ainda são roadmap.
 
 ### Executar Testes
 
 ```bash
-# Todos os testes
-mvn test
+# Backend (comando de referência do AGENTS.md)
+mvn -pl application/api-gateway -am test
 
-# Testes de um módulo específico
-mvn test -pl modules/user-management
-
-# Testes de integração
-mvn verify
-
-# Testes com cobertura
-mvn test jacoco:report
+# Frontend
+cd application/web-app
+npm run lint
+npm run build
+npm run smoke:api
 ```
 
 ## 📚 Documentação

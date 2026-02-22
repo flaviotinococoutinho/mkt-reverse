@@ -8,6 +8,7 @@ const Register = lazy(() => import('./pages/auth/Register'));
 const PhoneVerification = lazy(() => import('./pages/auth/PhoneVerification'));
 const ProfileSetup = lazy(() => import('./pages/auth/ProfileSetup'));
 const OnboardingTutorial = lazy(() => import('./pages/auth/OnboardingTutorial'));
+const DashboardRedirect = lazy(() => import('./pages/auth/DashboardRedirect'));
 const Landing = lazy(() => import('./pages/Landing'));
 const BuyerDashboard = lazy(() => import('./pages/buyer/BuyerDashboard'));
 const CreateRequest = lazy(() => import('./pages/buyer/CreateRequest'));
@@ -41,12 +42,12 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route path="/onboarding/profile" element={<ProfileSetup />} />
               <Route path="/onboarding/tutorial" element={<OnboardingTutorial />} />
+              <Route path="/dashboard" element={<DashboardRedirect />} />
             </Route>
 
             {/* Buyer Routes */}
             <Route element={<ProtectedRoute requiredRole="buyer" />}>
               <Route path="/buyer/dashboard" element={<BuyerDashboard />} />
-              <Route path="/dashboard" element={<BuyerDashboard />} />
               <Route path="/create-request" element={<CreateRequest />} />
               <Route path="/sourcing-events/:id" element={<SourcingEventDetail />} />
             </Route>
@@ -58,6 +59,9 @@ function App() {
               <Route path="/supplier/opportunities/:id" element={<OpportunityDetail />} />
               <Route path="/supplier/submit-proposal/:id" element={<SubmitProposal />} />
             </Route>
+
+            {/* Fallback */}
+            <Route path="*" element={<Landing />} />
           </Routes>
         </Suspense>
       </Router>

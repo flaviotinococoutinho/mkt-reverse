@@ -9,6 +9,17 @@ import type { SupplierResponseRequest, SourcingEventView } from '../../services/
 import { useToast } from '../../context/useToast';
 import { useAuth } from '../../context/useAuth';
 import { CONDITION_OPTIONS, SHIPPING_MODE_OPTIONS } from '../../lib/offerTerms';
+import { getFriendlyHttpErrorMessage } from '../../lib/problemDetails';
+import {
+  toMoneyCents,
+  toNonNegativeInteger,
+  validateSubmitProposalForm,
+} from '../../lib/submitProposalValidation';
+import type { SubmitProposalErrors } from '../../lib/submitProposalValidation';
+import {
+  canSubmitProposalForEventStatus,
+  getProposalSubmissionBlockReason,
+} from '../../lib/proposalSubmissionAvailability';
 import {
   DollarSign,
   Truck,
@@ -32,12 +43,12 @@ export default function SubmitProposal() {
     leadTimeDays: 7,
     warrantyMonths: 12,
     condition: 'NEW',
-    shippingMode: 'SELLER',
+    shippingMode: 'SHIPPING',
     message: '',
     attributes: [],
   });
 
-  const [formErrors, setFormErrors] = React.useState<Record<string, string>>({});
+  const [formErrors, setFormErrors] = React.useState<SubmitProposalErrors>({});
 
   const loadEvent = React.useCallback(async () => {
     if (!id) return;
@@ -66,31 +77,22 @@ export default function SubmitProposal() {
     }
   }, [loadEvent, user?.id]);
 
+  const canSubmitForEvent = canSubmitProposalForEventStatus(event?.status);
+  const submitBlockReason = getProposalSubmissionBlockReason(event?.status);
+
   const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
-
-    if (formData.offerCents <= 0) {
-      errors.offerCents = 'O valor da oferta deve ser maior que zero';
-    }
-
-    if (!formData.leadTimeDays || formData.leadTimeDays <= 0) {
-      errors.leadTimeDays = 'O prazo de entrega deve ser maior que zero';
-    }
-
-    if (!formData.warrantyMonths || formData.warrantyMonths < 0) {
-      errors.warrantyMonths = 'A garantia deve ser zero ou positiva';
-    }
-
-    if (!formData.supplierId || formData.supplierId.trim().length === 0) {
-      errors.submit = 'Não foi possível identificar o vendedor autenticado. Faça login novamente.';
-    }
-
+    const errors = validateSubmitProposalForm(formData);
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!canSubmitForEvent) {
+      setFormErrors({ submit: submitBlockReason ?? 'Esta solicitação não aceita mais propostas.' });
+      return;
+    }
 
     if (!validateForm() || !id) return;
 
@@ -106,19 +108,11 @@ export default function SubmitProposal() {
       navigate(`/supplier/opportunities/${id}`);
     } catch (error: unknown) {
       console.error('Failed to submit proposal:', error);
-      type HttpErrorLike = {
-        response?: {
-          data?: {
-            message?: unknown;
-          };
-        };
-      };
-
+      type HttpErrorLike = { response?: { status?: number; data?: unknown } };
       const maybeHttpError = error as HttpErrorLike;
       const message =
-        typeof maybeHttpError.response?.data?.message === 'string'
-          ? maybeHttpError.response?.data?.message
-          : 'Falha ao enviar proposta. Tente novamente.';
+        getFriendlyHttpErrorMessage(maybeHttpError.response?.status, maybeHttpError.response?.data)
+        ?? 'Falha ao enviar proposta. Tente novamente.';
 
       setFormErrors({ submit: message });
     } finally {
@@ -131,25 +125,13 @@ export default function SubmitProposal() {
   ) => {
     const { name, value } = e.target;
 
-    const asPositiveInteger = (raw: string): number => {
-      const parsed = Number.parseInt(raw, 10);
-      return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-    };
-
-    const asMoneyCents = (raw: string): number => {
-      const normalized = raw.replace(',', '.');
-      const parsed = Number.parseFloat(normalized);
-      if (!Number.isFinite(parsed) || parsed <= 0) return 0;
-      return Math.round(parsed * 100);
-    };
-
     setFormData((prev) => ({
       ...prev,
       [name]:
         name === 'offerCents'
-          ? asMoneyCents(value)
+          ? toMoneyCents(value)
           : name === 'leadTimeDays' || name === 'warrantyMonths'
-            ? asPositiveInteger(value)
+            ? toNonNegativeInteger(value)
             : value,
     }));
   };
@@ -223,6 +205,12 @@ export default function SubmitProposal() {
               {formErrors.submit && (
                 <div className="auction-panel bg-danger/10 border-danger/50 rounded-lg p-4 mb-6">
                   <p className="text-danger text-sm">{formErrors.submit}</p>
+                </div>
+              )}
+
+              {!formErrors.submit && !canSubmitForEvent && submitBlockReason && (
+                <div className="auction-panel bg-citrus/10 border-citrus/40 rounded-lg p-4 mb-6">
+                  <p className="text-citrus text-sm">{submitBlockReason}</p>
                 </div>
               )}
 
@@ -368,7 +356,7 @@ export default function SubmitProposal() {
                 type="submit"
                 size="lg"
                 isLoading={submitting}
-                disabled={!formData.supplierId}
+                disabled={!formData.supplierId || !canSubmitForEvent}
               >
                 <CheckCircle className="mr-2 h-5 w-5" />
                 Enviar Proposta

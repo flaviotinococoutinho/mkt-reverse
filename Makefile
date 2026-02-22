@@ -18,6 +18,12 @@ NC=\033[0m # No Color
 PROJECT_NAME=marketplace-reverso
 DOCKER_COMPOSE_FILE=docker-compose.yml
 MAVEN_OPTS=-Dmaven.test.skip=false
+SMOKE_REPORT_PATH?=./build/smoke-report.json
+SMOKE_MAX_TOTAL_MS?=60000
+SMOKE_MAX_STEP_MS?=25000
+SMOKE_MVP_REPORT_PATH?=./build/smoke-mvp-report.json
+SMOKE_MVP_MAX_TOTAL_MS?=90000
+SMOKE_MVP_MAX_STEP_MS?=45000
 
 help: ## Show this help message
 	@echo "$(BLUE)Marketplace Reverso - Available Commands$(NC)"
@@ -262,6 +268,76 @@ api-gateway-local: ## Run API Gateway locally (profile=local)
 
 web-app-local: ## Run Web App locally (Vite dev server)
 	@cd application/web-app && npm install && npm run dev
+
+smoke-mvp: ## Run consolidated MVP smoke flow (API critical path + UI route checks)
+	@echo "$(BLUE)Running consolidated MVP smoke flow (API + UI)...$(NC)"
+	@cd application/web-app && npm run smoke:mvp
+	@echo "$(GREEN)Consolidated MVP smoke flow completed!$(NC)"
+
+smoke-mvp-full-report-assert: ## Assert persisted consolidated MVP report SLA and required checks
+	@echo "$(BLUE)Asserting consolidated MVP report...$(NC)"
+	@cd application/web-app && npm run smoke:mvp:assert-report
+	@echo "$(GREEN)Consolidated MVP report assertion completed!$(NC)"
+
+smoke-mvp-full-report-check: ## Run consolidated MVP smoke, persist report, and assert SLA/required checks
+	@echo "$(BLUE)Running consolidated MVP smoke + report assertion...$(NC)"
+	@cd application/web-app && \
+		SMOKE_MVP_REPORT_PATH=$(SMOKE_MVP_REPORT_PATH) \
+		SMOKE_MVP_REPORT_INPUT=$(SMOKE_MVP_REPORT_PATH) \
+		SMOKE_MVP_MAX_TOTAL_MS=$(SMOKE_MVP_MAX_TOTAL_MS) \
+		SMOKE_MVP_MAX_STEP_MS=$(SMOKE_MVP_MAX_STEP_MS) \
+		npm run smoke:mvp:report-check
+	@echo "$(GREEN)Consolidated MVP smoke + report assertion completed!$(NC)"
+
+smoke-mvp-report-json: ## Run API smoke flow and print machine-readable JSON summary
+	@echo "$(BLUE)Running MVP smoke flow with JSON report...$(NC)"
+	@cd application/web-app && SMOKE_REPORT_JSON=1 npm run smoke:api
+	@echo "$(GREEN)MVP smoke flow with JSON report completed!$(NC)"
+
+smoke-mvp-report-file: ## Run API smoke flow and persist JSON report to application/web-app/build/smoke-report.json
+	@echo "$(BLUE)Running MVP smoke flow with persisted JSON report...$(NC)"
+	@cd application/web-app && SMOKE_REPORT_PATH=$(SMOKE_REPORT_PATH) npm run smoke:api:report-file
+	@echo "$(GREEN)MVP smoke flow with persisted report completed!$(NC)"
+
+smoke-mvp-report-assert: ## Assert persisted smoke report SLA and final statuses
+	@echo "$(BLUE)Asserting MVP persisted smoke report...$(NC)"
+	@cd application/web-app && npm run smoke:api:assert-report
+	@echo "$(GREEN)MVP persisted smoke report assertion completed!$(NC)"
+
+smoke-mvp-report-check: ## Run smoke flow, persist report, and assert SLA/final statuses
+	@echo "$(BLUE)Running MVP smoke flow + report assertion...$(NC)"
+	@cd application/web-app && \
+		SMOKE_REPORT_PATH=$(SMOKE_REPORT_PATH) \
+		SMOKE_REPORT_INPUT=$(SMOKE_REPORT_PATH) \
+		SMOKE_MAX_TOTAL_MS=$(SMOKE_MAX_TOTAL_MS) \
+		SMOKE_MAX_STEP_MS=$(SMOKE_MAX_STEP_MS) \
+		SMOKE_AUTH=$(SMOKE_AUTH) \
+		npm run smoke:api:report-check
+	@echo "$(GREEN)MVP smoke flow + report assertion completed!$(NC)"
+
+verify-mvp-daily: ## Daily MVP guardrail (backend tests + consolidated MVP smoke suite)
+	@echo "$(BLUE)Running daily MVP verification (api-gateway tests + consolidated smoke suite)...$(NC)"
+	@mvn -pl application/api-gateway -am test
+	@cd application/web-app && \
+		SMOKE_MVP_REPORT_PATH=./build/smoke-mvp-report.json \
+		SMOKE_MVP_REPORT_INPUT=./build/smoke-mvp-report.json \
+		npm run smoke:mvp:report-check
+	@echo "$(GREEN)Daily MVP verification completed!$(NC)"
+
+smoke-mvp-auth: ## Run end-to-end API smoke flow including register/login for buyer and supplier
+	@echo "$(BLUE)Running MVP smoke flow with auth bootstrap...$(NC)"
+	@cd application/web-app && SMOKE_AUTH=1 npm run smoke:api
+	@echo "$(GREEN)MVP smoke flow with auth completed!$(NC)"
+
+smoke-mvp-auth-invalid: ## Run auth smoke flow and verify invalid token gets 401/403 on protected endpoint
+	@echo "$(BLUE)Running MVP smoke flow with invalid-token assertion...$(NC)"
+	@cd application/web-app && SMOKE_AUTH=1 SMOKE_AUTH_INVALID=1 npm run smoke:api
+	@echo "$(GREEN)MVP invalid-token auth smoke completed!$(NC)"
+
+smoke-session: ## Validate UI auth-session invalidation flow wiring (401/403 -> login notice)
+	@echo "$(BLUE)Running session invalidation smoke checks...$(NC)"
+	@cd application/web-app && npm run smoke:session
+	@echo "$(GREEN)Session invalidation smoke checks completed!$(NC)"
 
 user-service: ## Start only user management service
 	@echo "$(BLUE)Starting User Management service...$(NC)"

@@ -28,6 +28,12 @@ export interface CreateSourcingEventResponse {
   id: string;
 }
 
+export interface UpdateSourcingEventRequest {
+  tenantId?: string;
+  title: string;
+  description?: string;
+}
+
 export interface SourcingEventView {
   id: string;
   status: string;
@@ -59,8 +65,8 @@ export interface SupplierResponseRequest {
   offerCents: number;
   leadTimeDays?: number;
   warrantyMonths?: number;
-  condition?: 'NEW' | 'USED' | 'REFURBISHED' | 'MADE_TO_ORDER';
-  shippingMode?: 'SELLER' | 'BUYER' | 'THIRD_PARTY';
+  condition?: 'NEW' | 'USED' | 'REFURBISHED' | 'FOR_PARTS' | 'UNKNOWN';
+  shippingMode?: 'PICKUP' | 'DELIVERY' | 'SHIPPING' | 'DIGITAL' | 'UNKNOWN';
   attributes?: SpecAttribute[];
   message?: string;
 }
@@ -93,6 +99,37 @@ function extractEmbeddedList<T>(payload: unknown): T[] {
   return Array.isArray(firstArray) ? (firstArray as T[]) : [];
 }
 
+function normalizeSourcingEventView(payload: unknown, requestedId: string): SourcingEventView {
+  if (!payload || typeof payload !== 'object') {
+    return {
+      id: requestedId,
+      status: 'UNKNOWN',
+      title: '',
+      description: undefined,
+      eventType: 'UNKNOWN',
+      tenantId: '',
+      buyerOrganizationId: '',
+      awardedSupplierId: undefined,
+    };
+  }
+
+  const candidate = payload as Partial<SourcingEventView>;
+
+  return {
+    id: typeof candidate.id === 'string' && candidate.id.length > 0 ? candidate.id : requestedId,
+    status: typeof candidate.status === 'string' && candidate.status.length > 0 ? candidate.status : 'UNKNOWN',
+    title: typeof candidate.title === 'string' ? candidate.title : '',
+    description: typeof candidate.description === 'string' ? candidate.description : undefined,
+    eventType:
+      typeof candidate.eventType === 'string' && candidate.eventType.length > 0 ? candidate.eventType : 'UNKNOWN',
+    tenantId: typeof candidate.tenantId === 'string' ? candidate.tenantId : '',
+    buyerOrganizationId:
+      typeof candidate.buyerOrganizationId === 'string' ? candidate.buyerOrganizationId : '',
+    awardedSupplierId:
+      typeof candidate.awardedSupplierId === 'string' ? candidate.awardedSupplierId : undefined,
+  };
+}
+
 export const sourcingService = {
   async createSourcingEvent(data: CreateSourcingEventRequest): Promise<CreateSourcingEventResponse> {
     // api baseURL already points to /api/v1
@@ -117,7 +154,11 @@ export const sourcingService = {
 
   async getSourcingEvent(id: string): Promise<SourcingEventView> {
     const response = await api.get(`/sourcing-events/${id}`);
-    return response.data;
+    return normalizeSourcingEventView(response.data, id);
+  },
+
+  async updateSourcingEvent(id: string, data: UpdateSourcingEventRequest): Promise<void> {
+    await api.patch(`/sourcing-events/${id}`, data);
   },
 
   async getResponses(eventId: string): Promise<SupplierResponseView[]> {

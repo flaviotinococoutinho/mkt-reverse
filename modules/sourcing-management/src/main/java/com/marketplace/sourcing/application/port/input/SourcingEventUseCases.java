@@ -1,13 +1,20 @@
 package com.marketplace.sourcing.application.port.input;
 
+import java.time.Instant;
+import java.util.List;
+
 import com.marketplace.shared.paging.PageResult;
 import com.marketplace.shared.valueobject.Money;
 import com.marketplace.sourcing.domain.model.SourcingEvent;
 import com.marketplace.sourcing.domain.model.SupplierResponse;
-import com.marketplace.sourcing.domain.valueobject.*;
-
-import java.time.Instant;
-import java.util.List;
+import com.marketplace.sourcing.domain.valueobject.OfferCondition;
+import com.marketplace.sourcing.domain.valueobject.ProductSpecification;
+import com.marketplace.sourcing.domain.valueobject.ShippingMode;
+import com.marketplace.sourcing.domain.valueobject.SourcingEventId;
+import com.marketplace.sourcing.domain.valueobject.SourcingEventStatus;
+import com.marketplace.sourcing.domain.valueobject.SourcingEventType;
+import com.marketplace.sourcing.domain.valueobject.SpecAttribute;
+import com.marketplace.sourcing.domain.valueobject.SupplierResponseId;
 
 public interface SourcingEventUseCases {
 
@@ -26,7 +33,9 @@ public interface SourcingEventUseCases {
         Money estimatedBudget
     );
 
-    SourcingEvent getEvent(String eventId);
+    SourcingEvent getEvent(String eventId, String tenantId);
+
+    void updateEvent(String eventId, String tenantId, String title, String description);
 
     PageResult<SourcingEvent> searchEvents(String tenantId, SourcingEventStatus status, Integer mccCategoryCode, int page, int size);
 
@@ -47,6 +56,7 @@ public interface SourcingEventUseCases {
     SupplierResponseId submitResponse(
         String eventId,
         String supplierId,
+        String supplierOrganizationId,
         Money offerAmount,
         String message,
         Integer leadTimeDays,
@@ -56,5 +66,5 @@ public interface SourcingEventUseCases {
         List<SpecAttribute> attributes
     );
 
-    void acceptResponse(String eventId, String responseId);
+    void acceptResponse(String eventId, String responseId, String tenantId);
 }

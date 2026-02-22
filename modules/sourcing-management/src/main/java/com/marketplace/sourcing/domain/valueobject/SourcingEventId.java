@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.util.Objects;
-import java.util.Objects;
 
 /**
  * Sourcing Event ID Value Object
@@ -41,7 +40,7 @@ public class SourcingEventId implements Serializable {
     }
 
     /**
-     * Creates a SourcingEventId from an existing UUID
+     * Creates a SourcingEventId from an existing numeric identifier.
      */
     public static SourcingEventId of(long id) {
         if (id <= 0) {
@@ -65,7 +64,7 @@ public class SourcingEventId implements Serializable {
     }
 
     /**
-     * Returns the string representation of the UUID
+     * Returns the string representation of this identifier.
      */
     public String asString() {
         return String.valueOf(value);

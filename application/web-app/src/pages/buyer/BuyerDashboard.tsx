@@ -7,6 +7,13 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { sourcingService } from '../../services/sourcingService';
 import type { SourcingEventView } from '../../services/sourcingService';
 import { Plus, FileText } from 'lucide-react';
+import axios from 'axios';
+import { getFriendlyHttpErrorMessage } from '../../lib/problemDetails';
+import {
+  parseBuyerDashboardFilters,
+  toBuyerDashboardQueryParams,
+  type BuyerStatusFilter,
+} from '../../lib/buyerDashboardFilters';
 
 export default function BuyerDashboard() {
   const navigate = useNavigate();
@@ -14,24 +21,19 @@ export default function BuyerDashboard() {
   const { user } = useAuth();
   const [events, setEvents] = React.useState<SourcingEventView[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const initialQuery = searchParams.get('q')?.trim() ?? '';
-  const initialStatus = searchParams.get('status');
-  const initialPage = Number.parseInt(searchParams.get('page') ?? '0', 10);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const initialFilters = parseBuyerDashboardFilters(searchParams);
 
-  const allowedStatusFilters = ['ALL', 'DRAFT', 'PUBLISHED', 'IN_PROGRESS', 'AWARDED', 'CANCELLED'];
-  const parsedInitialStatus =
-    initialStatus && allowedStatusFilters.includes(initialStatus) ? initialStatus : 'ALL';
-
-  const [searchQuery, setSearchQuery] = React.useState(initialQuery);
-  const [appliedSearchQuery, setAppliedSearchQuery] = React.useState(initialQuery);
-  const [statusFilter, setStatusFilter] = React.useState<string>(parsedInitialStatus);
-  const [currentPage, setCurrentPage] = React.useState(
-    Number.isNaN(initialPage) ? 0 : Math.max(0, initialPage)
-  );
+  const [searchQuery, setSearchQuery] = React.useState(initialFilters.searchQuery);
+  const [appliedSearchQuery, setAppliedSearchQuery] = React.useState(initialFilters.searchQuery);
+  const [statusFilter, setStatusFilter] = React.useState(initialFilters.status);
+  const [currentPage, setCurrentPage] = React.useState(initialFilters.page);
   const [pageSize] = React.useState(10);
   const [totalEvents, setTotalEvents] = React.useState(0);
 
   const loadEvents = React.useCallback(async () => {
+    setLoadError(null);
+
     try {
       const result = await sourcingService.getSourcingEvents({
         tenantId: user?.tenantId,
@@ -52,6 +54,17 @@ export default function BuyerDashboard() {
       setTotalEvents(result.total);
     } catch (error) {
       console.error('Failed to load events:', error);
+      const fallbackMessage = 'Não foi possível carregar suas solicitações. Tente novamente.';
+
+      if (axios.isAxiosError(error)) {
+        setLoadError(
+          getFriendlyHttpErrorMessage(error.response?.status, error.response?.data)
+            ?? error.message
+            ?? fallbackMessage,
+        );
+      } else {
+        setLoadError(fallbackMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -62,17 +75,11 @@ export default function BuyerDashboard() {
   }, [loadEvents]);
 
   React.useEffect(() => {
-    const nextParams = new URLSearchParams();
-
-    if (appliedSearchQuery) {
-      nextParams.set('q', appliedSearchQuery);
-    }
-    if (statusFilter !== 'ALL') {
-      nextParams.set('status', statusFilter);
-    }
-    if (currentPage > 0) {
-      nextParams.set('page', String(currentPage));
-    }
+    const nextParams = toBuyerDashboardQueryParams({
+      searchQuery: appliedSearchQuery,
+      status: statusFilter,
+      page: currentPage,
+    });
 
     const current = searchParams.toString();
     const next = nextParams.toString();
@@ -135,7 +142,7 @@ export default function BuyerDashboard() {
               onChange={(event) => {
                 setLoading(true);
                 setCurrentPage(0);
-                setStatusFilter(event.target.value);
+                setStatusFilter(event.target.value as BuyerStatusFilter);
               }}
               className="w-full rounded-md border border-stroke bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 focus:border-citrus focus:outline-none"
             >
@@ -181,13 +188,37 @@ export default function BuyerDashboard() {
           <div className="flex items-center justify-center py-12">
             <div className="text-zinc-400">Carregando...</div>
           </div>
+        ) : loadError ? (
+          <div className="auction-panel text-center py-12 px-6">
+            <p className="text-danger text-sm font-mono mb-2">FALHA_AO_CARREGAR</p>
+            <p className="text-zinc-300 mb-6">{loadError}</p>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setLoading(true);
+                void loadEvents();
+              }}
+            >
+              Tentar novamente
+            </Button>
+          </div>
         ) : events.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="h-16 w-16 mx-auto mb-4 text-zinc-600" />
-            <p className="text-zinc-400 mb-4">Você ainda não tem solicitações</p>
-            <Button onClick={() => navigate('/create-request')}>
-              Criar Primeira Solicitação
-            </Button>
+            <p className="text-zinc-400 mb-4">
+              {hasActiveFilters
+                ? 'Nenhuma solicitação encontrada com os filtros atuais.'
+                : 'Você ainda não tem solicitações'}
+            </p>
+            {hasActiveFilters ? (
+              <Button variant="secondary" onClick={clearFilters}>
+                Limpar filtros
+              </Button>
+            ) : (
+              <Button onClick={() => navigate('/create-request')}>
+                Criar Primeira Solicitação
+              </Button>
+            )}
           </div>
         ) : (
           <div className="space-y-4">

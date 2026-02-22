@@ -10,8 +10,6 @@ import com.marketplace.sourcing.domain.valueobject.ProductSpecification;
 import com.marketplace.sourcing.domain.valueobject.ShippingMode;
 import com.marketplace.sourcing.domain.valueobject.SpecAttribute;
 import com.marketplace.sourcing.domain.valueobject.SpecAttributeType;
-import com.marketplace.sourcing.domain.valueobject.SourcingEventId;
-import com.marketplace.sourcing.domain.valueobject.SourcingEventStatus;
 import com.marketplace.sourcing.domain.valueobject.SourcingEventType;
 import com.marketplace.sourcing.domain.valueobject.SupplierResponseId;
 import org.springframework.graphql.data.method.annotation.Argument;
@@ -36,7 +34,7 @@ public class SourcingGraphqlController {
 
     @QueryMapping
     public SourcingEventView sourcingEvent(@Argument String id) {
-        SourcingEvent event = service.getEvent(id);
+        SourcingEvent event = service.getEvent(id, null);
         return SourcingEventView.from(event);
     }
 
@@ -48,11 +46,12 @@ public class SourcingGraphqlController {
         @Argument Integer page,
         @Argument Integer size
     ) {
-        SourcingEventStatus parsedStatus = status != null ? SourcingEventStatus.valueOf(status) : null;
-        int safePage = page != null ? page : 0;
-        int safeSize = size != null ? size : 20;
+        var parsedStatus = status != null
+            ? com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.valueOf(status)
+            : null;
 
-        return service.searchEvents(tenantId, parsedStatus, mccCategoryCode, safePage, safeSize)
+        return service
+            .searchEvents(tenantId, parsedStatus, mccCategoryCode, page != null ? page : 0, size != null ? size : 20)
             .items()
             .stream()
             .map(SourcingEventView::from)
@@ -66,15 +65,21 @@ public class SourcingGraphqlController {
         @Argument Integer mccCategoryCode,
         @Argument String q,
         @Argument String visibility,
-        @Argument String sortBy,
-        @Argument String sortDir,
         @Argument Integer page,
         @Argument Integer size
     ) {
-        int safePage = page != null ? page : 0;
-        int safeSize = size != null ? size : 20;
-
-        return service.searchOpportunitiesForSupplier(tenantId, supplierId, mccCategoryCode, q, visibility, sortBy, sortDir, safePage, safeSize)
+        return service
+            .searchOpportunitiesForSupplier(
+                tenantId,
+                supplierId,
+                mccCategoryCode,
+                q,
+                visibility != null ? visibility : "ALL",
+                "PUBLICATION_AT",
+                "DESC",
+                page != null ? page : 0,
+                size != null ? size : 20
+            )
             .items()
             .stream()
             .map(SourcingEventView::from)
@@ -96,40 +101,42 @@ public class SourcingGraphqlController {
             input.category(),
             input.unitOfMeasure(),
             input.quantityRequired()
-        ).withMccCategoryCode(input.mccCategoryCode())
-         .withAttributes(input.attributes() != null ? input.attributes().stream().map(SpecAttributeInput::toDomain).toList() : null);
+        )
+            .withMccCategoryCode(input.mccCategoryCode())
+            .withAttributes(input.attributes() != null ? input.attributes().stream().map(SpecAttributeInput::toDomain).toList() : List.of());
 
-        Instant deadline = Instant.now().plusSeconds(input.validForHours() * 3600L);
+        Instant deadline = Instant.now().plusSeconds((long) input.validForHours() * 3600L);
 
         Money budget = input.estimatedBudgetCents() != null
-            ? Money.of(input.estimatedBudgetCents() / 100.0, CurrencyCode.BRL)
+            ? Money.fromCents(input.estimatedBudgetCents(), CurrencyCode.BRL)
             : Money.zero(CurrencyCode.BRL);
 
-        SourcingEventId id = service.createAndPublishEvent(
-            input.tenantId(),
-            input.buyerOrganizationId(),
-            UUID.randomUUID().toString(),
-            input.buyerContactName(),
-            input.buyerContactPhone(),
-            input.buyerContactEmail(),
-            input.title(),
-            input.description(),
-            input.type() != null ? SourcingEventType.valueOf(input.type()) : SourcingEventType.RFQ,
-            spec,
-            deadline,
-            budget
-        );
-
-        return id.asString();
+        return service
+            .createAndPublishEvent(
+                input.tenantId(),
+                input.buyerOrganizationId(),
+                UUID.randomUUID().toString(),
+                input.buyerContactName(),
+                input.buyerContactPhone(),
+                input.buyerContactEmail(),
+                input.title(),
+                input.description(),
+                input.type() != null ? SourcingEventType.valueOf(input.type()) : SourcingEventType.RFQ,
+                spec,
+                deadline,
+                budget
+            )
+            .asString();
     }
 
     @MutationMapping
     public String submitResponse(@Argument SubmitResponseInput input) {
-        Money offer = Money.of(input.offerCents() / 100.0, CurrencyCode.BRL);
+        Money offer = Money.fromCents(input.offerCents(), CurrencyCode.BRL);
 
         SupplierResponseId responseId = service.submitResponse(
             input.eventId(),
             input.supplierId(),
+            input.supplierOrganizationId(),
             offer,
             input.message(),
             input.leadTimeDays(),
@@ -144,7 +151,7 @@ public class SourcingGraphqlController {
 
     @MutationMapping
     public boolean acceptResponse(@Argument String eventId, @Argument String responseId) {
-        service.acceptResponse(eventId, responseId);
+        service.acceptResponse(eventId, responseId, null);
         return true;
     }
 
@@ -179,6 +186,7 @@ public class SourcingGraphqlController {
     public record SubmitResponseInput(
         String eventId,
         String supplierId,
+        String supplierOrganizationId,
         Long offerCents,
         Integer leadTimeDays,
         Integer warrantyMonths,

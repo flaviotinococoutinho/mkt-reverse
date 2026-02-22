@@ -6,9 +6,23 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test": "vitest run",
     "lint": "eslint .",
     "preview": "vite preview",
-    "smoke:api": "node ./scripts/smoke-flow.mjs"
+    "smoke:api": "node ./scripts/smoke-flow.mjs",
+    "smoke:api:report-json": "SMOKE_REPORT_JSON=1 node ./scripts/smoke-flow.mjs",
+    "smoke:api:report-file": "SMOKE_REPORT_PATH=${SMOKE_REPORT_PATH:-./build/smoke-report.json} node ./scripts/smoke-flow.mjs",
+    "smoke:api:assert-report": "node ./scripts/assert-smoke-report.mjs",
+    "smoke:api:report-check": "SMOKE_REPORT_PATH=${SMOKE_REPORT_PATH:-./build/smoke-report.json} node ./scripts/smoke-flow.mjs && SMOKE_REPORT_INPUT=${SMOKE_REPORT_INPUT:-${SMOKE_REPORT_PATH:-./build/smoke-report.json}} node ./scripts/assert-smoke-report.mjs",
+    "smoke:api:auth": "SMOKE_AUTH=1 node ./scripts/smoke-flow.mjs",
+    "smoke:api:auth:invalid": "SMOKE_AUTH=1 SMOKE_AUTH_INVALID=1 node ./scripts/smoke-flow.mjs",
+    "smoke:ui": "node ./scripts/smoke-ui-routes.mjs",
+    "smoke:ui:response-detail-query": "node ./scripts/smoke-response-detail-query.mjs",
+    "smoke:mvp": "node ./scripts/smoke-mvp.mjs",
+    "smoke:mvp:report-file": "SMOKE_MVP_REPORT_PATH=${SMOKE_MVP_REPORT_PATH:-./build/smoke-mvp-report.json} node ./scripts/smoke-mvp.mjs",
+    "smoke:mvp:assert-report": "node ./scripts/assert-smoke-mvp-report.mjs",
+    "smoke:mvp:report-check": "SMOKE_MVP_REPORT_PATH=${SMOKE_MVP_REPORT_PATH:-./build/smoke-mvp-report.json} node ./scripts/smoke-mvp.mjs && SMOKE_MVP_REPORT_INPUT=${SMOKE_MVP_REPORT_INPUT:-${SMOKE_MVP_REPORT_PATH:-./build/smoke-mvp-report.json}} node ./scripts/assert-smoke-mvp-report.mjs",
+    "smoke:session": "node ./scripts/smoke-session-invalid.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
@@ -36,6 +50,7 @@
     "tailwindcss": "^4.1.18",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vitest": "^3.2.4"
   }
 }

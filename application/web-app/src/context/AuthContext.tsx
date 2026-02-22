@@ -1,18 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { User, authService } from '../services/authService';
+import React, { useEffect, useState } from 'react';
+import type { User } from '../services/authService';
+import { authService } from '../services/authService';
 import { AuthContext } from './auth-context';
 
+function getInitialUser(): User | null {
+  const storedUser = localStorage.getItem('user');
+  const storedToken = localStorage.getItem('token');
+
+  if (!storedUser || !storedToken) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(storedUser) as User;
+  } catch {
+    return null;
+  }
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(getInitialUser);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const storedToken = localStorage.getItem('token');
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    const handleSessionInvalid = () => {
+      setUser(null);
+    };
+
+    window.addEventListener('auth:session-invalid', handleSessionInvalid as EventListener);
+    return () => {
+      window.removeEventListener('auth:session-invalid', handleSessionInvalid as EventListener);
+    };
   }, []);
 
   const login = (newUser: User, newToken: string) => {
@@ -26,15 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
-  const isAuthenticated = !!user || !!localStorage.getItem('token');
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-ink flex items-center justify-center">
-        <div className="text-citrus font-mono animate-pulse">AUTENTICANDO...</div>
-      </div>
-    );
-  }
+  const isAuthenticated = !!user && !!localStorage.getItem('token');
 
   return (
     <AuthContext.Provider value={{ user, login, logout, isAuthenticated }}>

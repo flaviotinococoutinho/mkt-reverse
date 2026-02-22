@@ -10,13 +10,20 @@ import {
   type SubmitResponseRequest,
 } from '@/api/sourcing'
 import { useAppSettings } from '@/ui/SettingsDock'
+import { AttributeEditor, SpecAttribute } from '@/ui/components/AttributeEditor'
+import { useAuth } from '@/ui/context/AuthContext'
 
 export function EventDetailPage() {
   const { eventId } = useParams()
   if (!eventId) throw new Error('Missing eventId')
 
   const qc = useQueryClient()
-  const { supplierId } = useAppSettings()
+  const { supplierId: settingsSupplierId } = useAppSettings()
+  const { user } = useAuth()
+
+  // Determine effective supplierId: Auth context takes precedence, fallback to SettingsDock
+  // In a real app, 'user.tenantId' or specific 'user.supplierId' would be used.
+  const effectiveSupplierId = user ? user.tenantId : settingsSupplierId
 
   const eventQ = useQuery({
     queryKey: ['event', eventId],
@@ -28,7 +35,7 @@ export function EventDetailPage() {
   })
 
   const [offer, setOffer] = React.useState<SubmitResponseRequest>({
-    supplierId,
+    supplierId: effectiveSupplierId,
     offerCents: 19900,
     leadTimeDays: 3,
     warrantyMonths: 3,
@@ -38,9 +45,10 @@ export function EventDetailPage() {
     attributes: [{ key: 'voltage', type: 'VOLTAGE', unit: 'V', value: 220 }],
   })
 
+  // Keep supplierId in sync if context/settings change
   React.useEffect(() => {
-    setOffer((o) => ({ ...o, supplierId }))
-  }, [supplierId])
+    setOffer((o) => ({ ...o, supplierId: effectiveSupplierId }))
+  }, [effectiveSupplierId])
 
   const submitM = useMutation({
     mutationFn: () => submitResponse(eventId, offer),
@@ -59,6 +67,10 @@ export function EventDetailPage() {
       ])
     },
   })
+
+  const handleAttributesChange = (newAttrs: SpecAttribute[]) => {
+    setOffer((prev) => ({ ...prev, attributes: newAttrs }))
+  }
 
   return (
     <section className="page">
@@ -96,6 +108,23 @@ export function EventDetailPage() {
               <div className="v">
                 {eventQ.data.quantityRequired ?? '—'} {eventQ.data.unitOfMeasure ?? ''}
               </div>
+              <div className="k">descrição</div>
+              <div className="v">{eventQ.data.description ?? '—'}</div>
+              
+              {eventQ.data.attributes && eventQ.data.attributes.length > 0 && (
+                <>
+                  <div className="k" style={{marginTop: '0.5rem'}}>atributos exigidos</div>
+                  <div className="v">
+                    <ul style={{ paddingLeft: '1rem', margin: 0 }}>
+                      {eventQ.data.attributes.map((attr: any, i: number) => (
+                        <li key={i} className="mono small">
+                          {attr.key}: {String(attr.value)} {attr.unit}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -127,12 +156,18 @@ export function EventDetailPage() {
                     <div>
                       <span className="mono">warranty</span> {r.warrantyMonths ?? '—'}m
                     </div>
+                    {r.attributes && r.attributes.length > 0 && (
+                      <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#666' }}>
+                        {r.attributes.map(a => `${a.key}=${a.value}`).join(', ')}
+                      </div>
+                    )}
                   </div>
                   <div className="rowActions">
                     <button
                       className="btn"
-                      disabled={acceptM.isPending}
+                      disabled={acceptM.isPending || eventQ.data?.status !== 'PUBLISHED' && eventQ.data?.status !== 'IN_PROGRESS' && eventQ.data?.status !== 'NEGOTIATION' && eventQ.data?.status !== 'UNDER_EVALUATION'}
                       onClick={() => acceptM.mutate({ responseId: r.id })}
+                      title="Aceitar proposta (gera contrato)"
                     >
                       Aceitar
                     </button>
@@ -161,6 +196,7 @@ export function EventDetailPage() {
                 onChange={(e) =>
                   setOffer((s) => ({ ...s, supplierId: e.target.value }))
                 }
+                disabled={!!user} // Disable if logged in via AuthContext
               />
             </label>
 
@@ -239,7 +275,7 @@ export function EventDetailPage() {
               <div className="label">message</div>
               <textarea
                 className="textarea"
-                rows={3}
+                rows={2}
                 value={offer.message ?? ''}
                 onChange={(e) =>
                   setOffer((s) => ({ ...s, message: e.target.value }))
@@ -247,9 +283,20 @@ export function EventDetailPage() {
               />
             </label>
 
+            {/* Integrated AttributeEditor for Supplier Response */}
+            <div className="field">
+              <div className="label">Atributos Técnicos (Especificação)</div>
+              <div style={{ marginTop: '0.25rem', border: '1px solid #eee', borderRadius: '8px', padding: '0.5rem', background: '#fafafa' }}>
+                <AttributeEditor
+                  attributes={offer.attributes}
+                  onChange={handleAttributesChange}
+                />
+              </div>
+            </div>
+
             <div className="actions">
               <button className="btn" type="submit" disabled={submitM.isPending}>
-                {submitM.isPending ? 'Enviando…' : 'Enviar'}
+                {submitM.isPending ? 'Enviando…' : 'Enviar Proposta'}
               </button>
               {submitM.isError && (
                 <div className="errorInline">{String((submitM.error as any)?.message)}</div>

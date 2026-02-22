@@ -41,35 +41,16 @@ public interface SpringDataSourcingEventJpaRepository extends JpaRepository<Sour
         Pageable pageable
     );
 
-        @Query("""
+    @Query("""
         select e from SourcingEvent e
         where (:tenantId is null or e.buyerContext.tenantId = :tenantId)
           and e.status in :statuses
           and (:mcc is null or e.productSpecification.mccCategoryCode = :mcc)
-          and (
-                :q is null
-                or lower(e.title) like lower(concat('%', :q, '%'))
-                or lower(e.description) like lower(concat('%', :q, '%'))
-                or lower(e.productSpecification.productName) like lower(concat('%', :q, '%'))
-          )
-          and (
-                (:openOnly = false and :inviteOnly = false and (
-                    :supplierId is null
-                    or e.invitedSupplierIds is empty
-                    or :supplierId member of e.invitedSupplierIds
-                ))
-                or (:openOnly = true and e.invitedSupplierIds is empty)
-                or (:inviteOnly = true and e.invitedSupplierIds is not empty and (:supplierId is not null and :supplierId member of e.invitedSupplierIds))
-          )
         """)
     Page<SourcingEvent> searchOpportunitiesForSupplier(
         @Param("tenantId") String tenantId,
-        @Param("supplierId") String supplierId,
         @Param("statuses") Set<SourcingEventStatus> statuses,
         @Param("mcc") Integer mcc,
-        @Param("q") String q,
-        @Param("openOnly") boolean openOnly,
-        @Param("inviteOnly") boolean inviteOnly,
         Pageable pageable
     );
 

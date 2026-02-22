@@ -132,12 +132,26 @@ As telas de login/cadastro usam os endpoints do **user-management** expostos no 
 
 ```bash
 npm run lint
+npm run test
 npm run build
 npm run smoke:api
+npm run smoke:api:auth
+npm run smoke:api:auth:invalid
+npm run smoke:api:report-file
+npm run smoke:api:report-check
+npm run smoke:session
+npm run smoke:ui
+npm run smoke:mvp
 ```
 
 > `smoke:api` requer `api-gateway` ativo em `http://localhost:8081` (ou `API_BASE_URL` customizado).
 > O script aguarda automaticamente a saúde da API antes de iniciar o fluxo.
+> `smoke:ui` valida rapidamente (sem backend) se as rotas críticas buyer/supplier continuam declaradas em `src/App.tsx`.
+> `smoke:api:auth:invalid` força token inválido e valida rejeição (401/403) em endpoint protegido.
+> `smoke:session` valida higiene de sessão do frontend (guard rails de token/expiração).
+> `smoke:api:report-file` gera relatório JSON persistido (default: `./build/smoke-report.json`).
+> `smoke:api:report-check` executa smoke + valida SLA/status final no relatório.
+> `smoke:mvp` orquestra um check consolidado (API crítica com auth + rotas UI + hidratação por query string na tela de detalhe) para validar rapidamente o MVP fim a fim.
 
 Variáveis opcionais do smoke:
 - `API_BASE_URL` (default: `http://localhost:8081/api/v1`)
@@ -146,6 +160,24 @@ Variáveis opcionais do smoke:
 - `SMOKE_STARTUP_POLL_MS` (default: `1500`)
 - `SMOKE_INCLUDE_ATTRIBUTES=1` para enviar atributos tipados no payload (padrão: sem atributos para reduzir falsos negativos em ambientes com schema estrito)
 - `SMOKE_AUTH=1` para incluir registro+login de buyer/supplier e validar endpoints de autenticação do user-management antes do fluxo de sourcing
+- Atalho: `npm run smoke:api:auth` já executa o smoke com `SMOKE_AUTH=1`
+- `SMOKE_REPORT_PATH` caminho do relatório JSON persistido (default: `./build/smoke-report.json`)
+- `SMOKE_REPORT_INPUT` caminho do relatório para validação (default: mesmo valor de `SMOKE_REPORT_PATH`)
+- `SMOKE_MAX_TOTAL_MS` SLA do fluxo completo (default: `60000`)
+- `SMOKE_MAX_STEP_MS` SLA por etapa (default: `25000`)
+
+### Runbook rápido (falhas comuns)
+
+- **API indisponível (`ECONNREFUSED` / timeout)**
+  - Garanta backend local ativo (`make dev-local-up` + `spring-boot:run`) e health `UP` em `http://localhost:8081/actuator/health`.
+
+- **`VALIDATION_ERROR` por schema estrito de atributos**
+  - Rode sem atributos tipados para isolar problema: `SMOKE_INCLUDE_ATTRIBUTES=0 npm run smoke:api:report-check`.
+  - Quando necessário, ajuste payload para atributos válidos da categoria.
+
+- **`401/403` por token inválido/expirado**
+  - Regere token via fluxo autenticado: `npm run smoke:api:auth`.
+  - Para cenário negativo esperado, use: `npm run smoke:api:auth:invalid`.
 
 ## 📝 Notas de Desenvolvimento
 

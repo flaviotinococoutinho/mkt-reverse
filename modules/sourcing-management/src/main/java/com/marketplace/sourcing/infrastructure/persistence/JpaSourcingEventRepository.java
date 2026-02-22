@@ -14,6 +14,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 @Repository
 public class JpaSourcingEventRepository implements SourcingEventRepository {
@@ -90,14 +91,48 @@ public class JpaSourcingEventRepository implements SourcingEventRepository {
         var statuses = EnumSet.of(SourcingEventStatus.PUBLISHED, SourcingEventStatus.IN_PROGRESS);
 
         String q = (query == null || query.trim().isEmpty()) ? null : query.trim();
+        String qLower = q == null ? null : q.toLowerCase();
         String sup = (supplierId == null || supplierId.trim().isEmpty()) ? null : supplierId.trim();
 
         String vis = (visibility == null || visibility.trim().isEmpty()) ? "ALL" : visibility.trim().toUpperCase();
         boolean openOnly = "OPEN".equals(vis);
         boolean inviteOnly = "INVITE_ONLY".equals(vis);
 
-        var result = jpa.searchOpportunitiesForSupplier(tenantId, sup, statuses, mccCategoryCode, q, openOnly, inviteOnly, pageable);
-        return new PageResult<>(result.getContent(), safePage, safeSize, result.getTotalElements());
+        // Keep DB-side filtering stable across environments/dialects.
+        // Text search is applied in-memory to avoid JPQL lower(...) issues on non-text columns.
+        var result = jpa.searchOpportunitiesForSupplier(tenantId, statuses, mccCategoryCode, pageable);
+
+        Stream<SourcingEvent> filtered = result.getContent().stream().filter(event -> {
+            Set<String> invited = event.getInvitedSupplierIds();
+            boolean isOpen = invited == null || invited.isEmpty();
+            boolean isInvited = sup != null && invited != null && invited.contains(sup);
+
+            boolean matchesQuery = true;
+            if (qLower != null) {
+                String title = event.getTitle() == null ? "" : event.getTitle().toLowerCase();
+                String productName = (event.getProductSpecification() == null || event.getProductSpecification().getProductName() == null)
+                    ? ""
+                    : event.getProductSpecification().getProductName().toLowerCase();
+                matchesQuery = title.contains(qLower) || productName.contains(qLower);
+            }
+
+            if (!matchesQuery) {
+                return false;
+            }
+
+            if (openOnly) {
+                return isOpen;
+            }
+
+            if (inviteOnly) {
+                return !isOpen && isInvited;
+            }
+
+            return sup == null || isOpen || isInvited;
+        });
+
+        var filteredItems = filtered.toList();
+        return new PageResult<>(filteredItems, safePage, safeSize, result.getTotalElements());
     }
 
     private Sort.Order resolveSort(String sortBy, String sortDir) {

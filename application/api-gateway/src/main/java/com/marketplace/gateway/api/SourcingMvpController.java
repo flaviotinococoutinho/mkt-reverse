@@ -66,7 +66,7 @@ public class SourcingMvpController {
         Instant deadline = Instant.now().plusSeconds(req.validForHours() * 3600L);
 
         Money budget = req.estimatedBudgetCents() != null
-            ? Money.of(req.estimatedBudgetCents() / 100.0, CurrencyCode.BRL)
+            ? Money.fromCents(req.estimatedBudgetCents(), CurrencyCode.BRL)
             : Money.zero(CurrencyCode.BRL);
 
         SourcingEventId id = service.createAndPublishEvent(
@@ -87,11 +87,11 @@ public class SourcingMvpController {
         var body = new CreateSourcingEventResponse(id.asString());
 
         Link self = WebMvcLinkBuilder.linkTo(
-            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).get(id.asString())
+            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).get(id.asString(), req.tenantId() != null && !req.tenantId().isBlank() ? req.tenantId() : "tenant-default")
         ).withSelfRel();
 
         Link responses = WebMvcLinkBuilder.linkTo(
-            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(id.asString())
+            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(id.asString(), req.tenantId() != null && !req.tenantId().isBlank() ? req.tenantId() : "tenant-default")
         ).withRel("responses");
 
         return EntityModel.of(body, self, responses);
@@ -113,18 +113,19 @@ public class SourcingMvpController {
                 var view = SourcingEventView.from(e);
 
                 Link self = WebMvcLinkBuilder.linkTo(
-                    WebMvcLinkBuilder.methodOn(SourcingMvpController.class).get(view.id())
+                    WebMvcLinkBuilder.methodOn(SourcingMvpController.class).get(view.id(), tenantId)
                 ).withSelfRel();
 
                 Link responses = WebMvcLinkBuilder.linkTo(
-                    WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(view.id())
+                    WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(view.id(), tenantId)
                 ).withRel("responses");
 
                 return EntityModel.of(view, self, responses);
             }).toList();
 
         Link self = WebMvcLinkBuilder.linkTo(
-            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).list(tenantId, status, mccCategoryCode, page, size)
+            WebMvcLinkBuilder.methodOn(SourcingMvpController.class)
+                .list(tenantId, status, mccCategoryCode, page, size)
         ).withSelfRel();
 
         var metadata = new PagedModel.PageMetadata(result.size(), result.page(), result.totalElements(), result.totalPages());
@@ -156,11 +157,11 @@ public class SourcingMvpController {
                 var view = SourcingEventView.from(e);
 
                 Link self = WebMvcLinkBuilder.linkTo(
-                    WebMvcLinkBuilder.methodOn(SourcingMvpController.class).get(view.id())
+                    WebMvcLinkBuilder.methodOn(SourcingMvpController.class).get(view.id(), tenantId)
                 ).withSelfRel();
 
                 Link responses = WebMvcLinkBuilder.linkTo(
-                    WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(view.id())
+                    WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(view.id(), tenantId)
                 ).withRel("responses");
 
                 return EntityModel.of(view, self, responses);
@@ -210,11 +211,11 @@ public class SourcingMvpController {
 
         var items = result.items().stream().map(view -> {
             Link self = WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(SourcingMvpController.class).get(view.id())
+                WebMvcLinkBuilder.methodOn(SourcingMvpController.class).get(view.id(), tenantId)
             ).withSelfRel();
 
             Link responses = WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(view.id())
+                WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(view.id(), tenantId)
             ).withRel("responses");
 
             return EntityModel.of(view, self, responses);
@@ -229,33 +230,58 @@ public class SourcingMvpController {
         return PagedModel.of(items, metadata, self);
     }
 
+    @PatchMapping("/sourcing-events/{id}")
+    public EntityModel<CreateSourcingEventResponse> update(
+        @PathVariable String id,
+        @Valid @RequestBody UpdateSourcingEventRequest req
+    ) {
+        service.updateEvent(id, req.tenantId(), req.title(), req.description());
+        
+        var body = new CreateSourcingEventResponse(id);
+        
+        Link self = WebMvcLinkBuilder.linkTo(
+            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).get(id, req.tenantId())
+        ).withSelfRel();
+        
+        return EntityModel.of(body, self);
+    }
+
     @GetMapping("/sourcing-events/{id}")
-    public EntityModel<SourcingEventView> get(@PathVariable String id) {
-        SourcingEvent event = service.getEvent(id);
+    public EntityModel<SourcingEventView> get(
+        @PathVariable String id,
+        @RequestParam(required = false) String tenantId
+    ) {
+        SourcingEvent event = service.getEvent(id, tenantId);
         var view = SourcingEventView.from(event);
 
         Link self = WebMvcLinkBuilder.linkTo(
-            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).get(id)
+            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).get(id, tenantId)
         ).withSelfRel();
 
         Link responses = WebMvcLinkBuilder.linkTo(
-            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(id)
+            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(id, tenantId)
         ).withRel("responses");
 
         return EntityModel.of(view, self, responses);
     }
 
     @GetMapping("/sourcing-events/{id}/responses")
-    public List<EntityModel<SupplierResponseView>> listResponses(@PathVariable String id) {
+    public List<EntityModel<SupplierResponseView>> listResponses(
+        @PathVariable String id,
+        @RequestParam(required = false) String tenantId
+    ) {
         return service.listResponses(id).stream().map(r -> {
             var view = SupplierResponseView.from(r);
             Link self = WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(id)
-            ).withRel("collection");
+                WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(id, tenantId)
+            ).withRel("collection"); // This link is for the collection, not the individual response
             Link accept = WebMvcLinkBuilder.linkTo(
-                WebMvcLinkBuilder.methodOn(SourcingMvpController.class).accept(id, view.id())
+                WebMvcLinkBuilder.methodOn(SourcingMvpController.class).accept(id, view.id(), tenantId)
             ).withRel("accept");
-            return EntityModel.of(view, self, accept);
+            Link root = WebMvcLinkBuilder.linkTo(
+                WebMvcLinkBuilder.methodOn(SourcingMvpController.class).get(id, tenantId)
+            ).withRel("event");
+            return EntityModel.of(view, self, accept, root);
         }).toList();
     }
 
@@ -265,10 +291,11 @@ public class SourcingMvpController {
         @PathVariable String id,
         @Valid @RequestBody CreateSupplierResponseRequest req
     ) {
-        Money offer = Money.of(req.offerCents() / 100.0, CurrencyCode.BRL);
+        Money offer = Money.fromCents(req.offerCents(), CurrencyCode.BRL);
         SupplierResponseId responseId = service.submitResponse(
             id,
             req.supplierId(),
+            req.supplierOrganizationId() != null ? req.supplierOrganizationId() : "org-default", // Fallback for MVP
             offer,
             req.message(),
             req.leadTimeDays(),
@@ -280,11 +307,11 @@ public class SourcingMvpController {
         var body = new CreateSupplierResponseResponse(responseId.asString());
 
         Link responses = WebMvcLinkBuilder.linkTo(
-            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(id)
+            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).listResponses(id, null)
         ).withRel("responses");
 
         Link accept = WebMvcLinkBuilder.linkTo(
-            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).accept(id, responseId.asString())
+            WebMvcLinkBuilder.methodOn(SourcingMvpController.class).accept(id, responseId.asString(), null)
         ).withRel("accept");
 
         return EntityModel.of(body, responses, accept);
@@ -293,9 +320,10 @@ public class SourcingMvpController {
     @PostMapping("/sourcing-events/{eventId}/responses/{responseId}/accept")
     public org.springframework.http.ResponseEntity<Void> accept(
         @PathVariable String eventId,
-        @PathVariable String responseId
+        @PathVariable String responseId,
+        @RequestParam(required = false) String tenantId
     ) {
-        service.acceptResponse(eventId, responseId);
+        service.acceptResponse(eventId, responseId, tenantId);
         return org.springframework.http.ResponseEntity.noContent().build();
     }
 
@@ -329,8 +357,15 @@ public class SourcingMvpController {
 
     public record CreateSourcingEventResponse(String id) {}
 
+    public record UpdateSourcingEventRequest(
+        @NotBlank String tenantId,
+        String title,
+        String description
+    ) {}
+
     public record CreateSupplierResponseRequest(
         @NotBlank String supplierId,
+        String supplierOrganizationId,
         @NotNull @Min(1) Long offerCents,
         Integer leadTimeDays,
         Integer warrantyMonths,

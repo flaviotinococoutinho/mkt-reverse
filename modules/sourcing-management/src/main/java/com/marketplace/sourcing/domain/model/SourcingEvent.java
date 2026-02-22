@@ -419,6 +419,12 @@ public class SourcingEvent extends AggregateRoot<SourcingEventId> {
         markAsUpdated();
     }
 
+    public void validateBidder(String supplierOrganizationId) {
+        if (buyerContext != null && buyerContext.getOrganizationId().equals(supplierOrganizationId)) {
+            throw new IllegalArgumentException("Buyer organization cannot allow self-bidding");
+        }
+    }
+
     public void validateProposalAttributes(java.util.List<com.marketplace.sourcing.domain.valueobject.SpecAttribute> attributes) {
         Integer mccCode = productSpecification != null ? productSpecification.getMccCategoryCode() : null;
         if (mccCode == null) {

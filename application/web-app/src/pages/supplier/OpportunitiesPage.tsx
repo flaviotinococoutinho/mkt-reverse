@@ -9,9 +9,13 @@ import { sourcingService } from '../../services/sourcingService';
 import type { SourcingEventView } from '../../services/sourcingService';
 import { getEventTypeLabel } from '../../lib/eventType';
 import {
+  OPPORTUNITY_PAGE_SIZE_OPTIONS,
   OPPORTUNITY_SORT_BY_OPTIONS,
   OPPORTUNITY_SORT_DIR_OPTIONS,
   OPPORTUNITY_VISIBILITY_OPTIONS,
+  parseOpportunityQueryParams,
+  toOpportunityQueryParams,
+  type OpportunityPageSize,
   type OpportunitySortBy,
   type OpportunitySortDir,
   type OpportunityVisibility,
@@ -23,6 +27,8 @@ import {
   AlertCircle,
   DollarSign,
 } from 'lucide-react';
+import axios from 'axios';
+import { getFriendlyHttpErrorMessage } from '../../lib/problemDetails';
 
 export default function OpportunitiesPage() {
   const navigate = useNavigate();
@@ -30,30 +36,23 @@ export default function OpportunitiesPage() {
   const { user } = useAuth();
   const [opportunities, setOpportunities] = React.useState<SourcingEventView[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const initialQuery = searchParams.get('q')?.trim() ?? '';
-  const initialMcc = searchParams.get('mcc')?.trim() ?? '';
-  const initialVisibility = searchParams.get('visibility');
-  const initialSortBy = searchParams.get('sortBy');
-  const initialSortDir = searchParams.get('sortDir');
-  const initialPage = Number.parseInt(searchParams.get('page') ?? '0', 10);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const initialState = React.useMemo(() => parseOpportunityQueryParams(searchParams), [searchParams]);
 
-  const isValidVisibility = OPPORTUNITY_VISIBILITY_OPTIONS.some((option) => option.value === initialVisibility);
-  const isValidSortBy = OPPORTUNITY_SORT_BY_OPTIONS.some((option) => option.value === initialSortBy);
-  const isValidSortDir = OPPORTUNITY_SORT_DIR_OPTIONS.some((option) => option.value === initialSortDir);
-
-  const [searchQuery, setSearchQuery] = React.useState(initialQuery);
-  const [appliedSearchQuery, setAppliedSearchQuery] = React.useState(initialQuery);
-  const [currentPage, setCurrentPage] = React.useState(Number.isNaN(initialPage) ? 0 : Math.max(0, initialPage));
+  const [searchQuery, setSearchQuery] = React.useState(initialState.q);
+  const [appliedSearchQuery, setAppliedSearchQuery] = React.useState(initialState.q);
+  const [currentPage, setCurrentPage] = React.useState(initialState.page);
+  const [pageSize, setPageSize] = React.useState<OpportunityPageSize>(
+    initialState.size,
+  );
   const [totalPages, setTotalPages] = React.useState(0);
   const [totalItems, setTotalItems] = React.useState(0);
   const [filters, setFilters] = React.useState({
-    mccCategoryCode: initialMcc,
-    visibility: (isValidVisibility ? initialVisibility : 'ALL') as OpportunityVisibility,
-    sortBy: (isValidSortBy ? initialSortBy : 'PUBLICATION_AT') as OpportunitySortBy,
-    sortDir: (isValidSortDir ? initialSortDir : 'DESC') as OpportunitySortDir,
+    mccCategoryCode: initialState.mccCategoryCode,
+    visibility: initialState.visibility as OpportunityVisibility,
+    sortBy: initialState.sortBy as OpportunitySortBy,
+    sortDir: initialState.sortDir as OpportunitySortDir,
   });
-
-  const ITEMS_PER_PAGE = 10;
 
   const hasActiveFilters =
     appliedSearchQuery.length > 0 ||
@@ -72,72 +71,84 @@ export default function OpportunitiesPage() {
       sortDir: 'DESC',
     });
     setCurrentPage(0);
+    setPageSize(OPPORTUNITY_PAGE_SIZE_OPTIONS[0]);
   };
 
   const loadOpportunities = React.useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
+
     try {
       const params: Parameters<typeof sourcingService.getOpportunities>[0] = {
         tenantId: user?.tenantId,
         supplierId: user?.id,
         q: appliedSearchQuery || undefined,
         page: currentPage,
-        size: ITEMS_PER_PAGE,
+        size: pageSize,
         sortBy: filters.sortBy,
         sortDir: filters.sortDir,
         visibility: filters.visibility,
       };
 
-      if (filters.mccCategoryCode) {
-        params.mccCategoryCode = parseInt(filters.mccCategoryCode);
+      const normalizedMcc = filters.mccCategoryCode.trim();
+      if (normalizedMcc) {
+        if (!/^\d+$/.test(normalizedMcc)) {
+          setLoadError('Código MCC inválido. Use apenas números.');
+          setOpportunities([]);
+          setTotalItems(0);
+          setTotalPages(0);
+          setLoading(false);
+          return;
+        }
+        params.mccCategoryCode = Number.parseInt(normalizedMcc, 10);
       }
 
       const result = await sourcingService.getOpportunities(params);
       setOpportunities(result.items);
       setTotalItems(result.total);
-      setTotalPages(Math.max(1, Math.ceil(result.total / ITEMS_PER_PAGE)));
+      setTotalPages(Math.max(1, Math.ceil(result.total / pageSize)));
     } catch (error) {
       console.error('Failed to load opportunities:', error);
       setOpportunities([]);
       setTotalItems(0);
       setTotalPages(0);
+
+      const fallbackMessage = 'Não foi possível carregar oportunidades no momento. Tente novamente.';
+      if (axios.isAxiosError(error)) {
+        setLoadError(
+          getFriendlyHttpErrorMessage(error.response?.status, error.response?.data)
+            ?? error.message
+            ?? fallbackMessage,
+        );
+      } else {
+        setLoadError(fallbackMessage);
+      }
     } finally {
       setLoading(false);
     }
-  }, [ITEMS_PER_PAGE, appliedSearchQuery, currentPage, filters.mccCategoryCode, filters.sortBy, filters.sortDir, filters.visibility, user?.id, user?.tenantId]);
+  }, [appliedSearchQuery, currentPage, filters.mccCategoryCode, filters.sortBy, filters.sortDir, filters.visibility, pageSize, user?.id, user?.tenantId]);
 
   React.useEffect(() => {
     void loadOpportunities();
   }, [loadOpportunities]);
 
   React.useEffect(() => {
-    const nextParams = new URLSearchParams();
-
-    if (appliedSearchQuery) {
-      nextParams.set('q', appliedSearchQuery);
-    }
-    if (filters.mccCategoryCode) {
-      nextParams.set('mcc', filters.mccCategoryCode);
-    }
-    if (filters.visibility !== 'ALL') {
-      nextParams.set('visibility', filters.visibility);
-    }
-    if (filters.sortBy !== 'PUBLICATION_AT') {
-      nextParams.set('sortBy', filters.sortBy);
-    }
-    if (filters.sortDir !== 'DESC') {
-      nextParams.set('sortDir', filters.sortDir);
-    }
-    if (currentPage > 0) {
-      nextParams.set('page', String(currentPage));
-    }
+    const nextParams = toOpportunityQueryParams({
+      q: appliedSearchQuery,
+      mccCategoryCode: filters.mccCategoryCode,
+      visibility: filters.visibility,
+      sortBy: filters.sortBy,
+      sortDir: filters.sortDir,
+      page: currentPage,
+      size: pageSize,
+    });
 
     const current = searchParams.toString();
     const next = nextParams.toString();
     if (current !== next) {
       setSearchParams(nextParams, { replace: true });
     }
-  }, [appliedSearchQuery, currentPage, filters.mccCategoryCode, filters.sortBy, filters.sortDir, filters.visibility, searchParams, setSearchParams]);
+  }, [appliedSearchQuery, currentPage, filters.mccCategoryCode, filters.sortBy, filters.sortDir, filters.visibility, pageSize, searchParams, setSearchParams]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,6 +159,10 @@ export default function OpportunitiesPage() {
   React.useEffect(() => {
     setCurrentPage(0);
   }, [filters.mccCategoryCode, filters.sortBy, filters.sortDir, filters.visibility]);
+
+  React.useEffect(() => {
+    setCurrentPage(0);
+  }, [pageSize]);
 
   return (
     <div className="min-h-screen bg-ink text-zinc-200 font-sans">
@@ -180,9 +195,15 @@ export default function OpportunitiesPage() {
                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
                 <Input
                   type="text"
+                  inputMode="numeric"
                   placeholder="Código MCC (opcional)"
                   value={filters.mccCategoryCode}
-                  onChange={(e) => setFilters({ ...filters, mccCategoryCode: e.target.value })}
+                  onChange={(e) =>
+                    setFilters({
+                      ...filters,
+                      mccCategoryCode: e.target.value.replace(/\D/g, '').slice(0, 4),
+                    })
+                  }
                   className="pl-10"
                 />
               </div>
@@ -251,11 +272,32 @@ export default function OpportunitiesPage() {
 
         {/* Results */}
         <div className="mb-4">
-          <p className="text-sm text-zinc-400">
-            {loading
-              ? 'Carregando...'
-              : `${totalItems} oportunidades encontradas`}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-zinc-400">
+              {loading
+                ? 'Carregando...'
+                : `${totalItems} oportunidades encontradas`}
+            </p>
+
+            <div className="flex items-center gap-2">
+              <label htmlFor="opportunities-page-size" className="text-xs text-zinc-500">
+                Itens por página
+              </label>
+              <select
+                id="opportunities-page-size"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value) as OpportunityPageSize)}
+                className="bg-ink border border-stroke rounded-md px-2 py-1 text-xs text-zinc-200 focus:border-citrus focus:outline-none"
+              >
+                {OPPORTUNITY_PAGE_SIZE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           {hasActiveFilters && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-xs text-zinc-500">Filtros ativos:</span>
@@ -294,13 +336,36 @@ export default function OpportunitiesPage() {
           <div className="flex items-center justify-center py-12">
             <div className="text-zinc-400">Carregando oportunidades...</div>
           </div>
+        ) : loadError ? (
+          <div className="auction-panel text-center py-12 px-6">
+            <p className="text-danger text-sm font-mono mb-2">FALHA_AO_CARREGAR</p>
+            <p className="text-zinc-300 mb-6">{loadError}</p>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                void loadOpportunities();
+              }}
+            >
+              Tentar novamente
+            </Button>
+          </div>
         ) : opportunities.length === 0 ? (
           <div className="text-center py-12">
             <AlertCircle className="h-16 w-16 mx-auto mb-4 text-zinc-600" />
-            <p className="text-zinc-400 mb-4">Nenhuma oportunidade encontrada com os filtros atuais</p>
-            <Button onClick={() => navigate('/supplier/dashboard')}>
-              Voltar ao Dashboard
-            </Button>
+            <p className="text-zinc-400 mb-4">
+              {hasActiveFilters
+                ? 'Nenhuma oportunidade encontrada com os filtros atuais.'
+                : 'Ainda não há oportunidades disponíveis para o seu perfil.'}
+            </p>
+            {hasActiveFilters ? (
+              <Button variant="secondary" onClick={clearFilters}>
+                Limpar filtros
+              </Button>
+            ) : (
+              <Button onClick={() => navigate('/supplier/dashboard')}>
+                Voltar ao Dashboard
+              </Button>
+            )}
           </div>
         ) : (
           <div className="space-y-4">

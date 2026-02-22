@@ -1,0 +1,96 @@
+name: MVP Daily Guardrail
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify-mvp-daily:
+    name: Verify MVP Daily (tests + smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: marketplace_main
+          POSTGRES_USER: marketplace_user
+          POSTGRES_PASSWORD: marketplace_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marketplace_user -d marketplace_main"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: application/web-app/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: application/web-app
+        run: npm ci
+
+      - name: Run api-gateway tests
+        run: mvn -pl application/api-gateway -am test
+
+      - name: Build api-gateway artifacts (skip tests)
+        run: mvn -pl application/api-gateway -am install -DskipTests
+
+      - name: Start api-gateway (profile local)
+        run: |
+          mvn -pl application/api-gateway spring-boot:run -Dspring-boot.run.profiles=local > /tmp/api-gateway.log 2>&1 &
+          echo $! > /tmp/api-gateway.pid
+
+      - name: Wait for api-gateway health
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8081/actuator/health >/dev/null; then
+              echo "API Gateway is UP"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API Gateway did not become healthy in time"
+          tail -n 200 /tmp/api-gateway.log || true
+          exit 1
+
+      - name: Run smoke-mvp report check
+        env:
+          SMOKE_MAX_TOTAL_MS: '90000'
+          SMOKE_MAX_STEP_MS: '30000'
+          SMOKE_REPORT_PATH: application/web-app/build/smoke-report.json
+        run: make smoke-mvp-report-check
+
+      - name: Upload smoke report and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mvp-smoke-artifacts
+          path: |
+            application/web-app/build/smoke-report.json
+            /tmp/api-gateway.log
+          if-no-files-found: warn
+
+      - name: Stop api-gateway
+        if: always()
+        run: |
+          if [ -f /tmp/api-gateway.pid ]; then
+            kill "$(cat /tmp/api-gateway.pid)" || true
+          fi

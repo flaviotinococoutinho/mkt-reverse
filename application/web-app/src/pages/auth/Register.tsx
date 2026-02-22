@@ -6,44 +6,20 @@ import { UserPlus } from 'lucide-react';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../context/useAuth';
 import axios from 'axios';
-import { digitsOnly, formatBrazilPhone } from '../../lib/phone';
+import { formatBrazilPhone } from '../../lib/phone';
 import { resetOnboardingState } from '../../lib/onboarding';
-
-type ProblemDetailsLike = {
-  detail?: unknown;
-  errors?: unknown;
-};
-
-function extractProblemMessage(data: unknown): string | null {
-  if (!data || typeof data !== 'object') return null;
-
-  const pd = data as ProblemDetailsLike;
-  if (typeof pd.detail === 'string' && pd.detail.trim().length > 0) {
-    return pd.detail;
-  }
-
-  if (pd.errors && typeof pd.errors === 'object') {
-    const entries = Object.entries(pd.errors as Record<string, unknown>);
-    const first = entries[0];
-    if (first && typeof first[1] === 'string') {
-      return first[1];
-    }
-  }
-
-  return null;
-}
+import { getFriendlyAuthErrorMessage } from '../../lib/authErrorMessage';
+import { isStrongPassword, isValidBrazilPhone, isValidCnpj, isValidCpf } from '../../lib/authValidation';
 
 function computeCpfCheckDigits(base9: number[]): [number, number] {
-  // 1st digit
   let sum1 = 0;
-  for (let i = 0; i < 9; i++) sum1 += base9[i] * (10 - i);
+  for (let i = 0; i < 9; i += 1) sum1 += base9[i] * (10 - i);
   let d1 = 11 - (sum1 % 11);
   if (d1 >= 10) d1 = 0;
 
-  // 2nd digit
   const base10 = [...base9, d1];
   let sum2 = 0;
-  for (let i = 0; i < 10; i++) sum2 += base10[i] * (11 - i);
+  for (let i = 0; i < 10; i += 1) sum2 += base10[i] * (11 - i);
   let d2 = 11 - (sum2 % 11);
   if (d2 >= 10) d2 = 0;
 
@@ -53,10 +29,7 @@ function computeCpfCheckDigits(base9: number[]): [number, number] {
 function generateTestCpf(): string {
   while (true) {
     const base9 = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
-
-    // avoid all digits equal (known invalid)
     if (base9.every((d) => d === base9[0])) continue;
-
     const [d1, d2] = computeCpfCheckDigits(base9);
     return [...base9, d1, d2].join('');
   }
@@ -88,22 +61,6 @@ function generateTestCnpj(): string {
   }
 }
 
-function isValidCpf(value: string): boolean {
-  const digits = digitsOnly(value);
-  if (digits.length !== 11 || /^([0-9])\1+$/.test(digits)) return false;
-  const numbers = digits.split('').map(Number);
-  const [d1, d2] = computeCpfCheckDigits(numbers.slice(0, 9));
-  return numbers[9] === d1 && numbers[10] === d2;
-}
-
-function isValidCnpj(value: string): boolean {
-  const digits = digitsOnly(value);
-  if (digits.length !== 14 || /^([0-9])\1+$/.test(digits)) return false;
-  const numbers = digits.split('').map(Number);
-  const [d1, d2] = computeCnpjCheckDigits(numbers.slice(0, 12));
-  return numbers[12] === d1 && numbers[13] === d2;
-}
-
 export default function Register() {
   const [role, setRole] = useState<'buyer' | 'supplier'>('buyer');
   const [formData, setFormData] = useState({
@@ -132,9 +89,8 @@ export default function Register() {
     setFormData({ ...formData, documentType });
   };
 
-  const phoneDigits = digitsOnly(formData.phone);
   const phoneError =
-    formData.phone.length > 0 && (phoneDigits.length < 10 || phoneDigits.length > 11)
+    formData.phone.length > 0 && !isValidBrazilPhone(formData.phone)
       ? 'Informe um telefone/WhatsApp válido (10 ou 11 dígitos).'
       : null;
 
@@ -149,9 +105,8 @@ export default function Register() {
     return null;
   })();
 
-  const passwordRule = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
   const passwordError =
-    formData.password.length > 0 && !passwordRule.test(formData.password)
+    formData.password.length > 0 && !isStrongPassword(formData.password)
       ? 'Use 8+ caracteres com maiúscula, minúscula, número e especial.'
       : null;
 
@@ -199,7 +154,7 @@ export default function Register() {
       console.error('Registration failed', error);
 
       if (axios.isAxiosError(error)) {
-        const msg = extractProblemMessage(error.response?.data);
+        const msg = getFriendlyAuthErrorMessage('register', error.response?.status, error.response?.data);
         setErrorMessage(msg || error.message);
         return;
       }
@@ -253,10 +208,9 @@ export default function Register() {
             value={formData.name}
             onChange={handleChange}
             required
-            error={phoneError ?? undefined}
           />
-          
-           <Input
+
+          <Input
             name="phone"
             type="tel"
             label="Telefone / WhatsApp"
@@ -264,6 +218,7 @@ export default function Register() {
             value={formData.phone}
             onChange={handleChange}
             required
+            error={phoneError ?? undefined}
           />
 
           <p className="text-xs text-zinc-500 leading-relaxed -mt-4">
