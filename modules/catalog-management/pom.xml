@@ -60,8 +60,8 @@
 
         <!-- Spring Kafka (For async events, e.g., when an asset changes) -->
         <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
         <!-- Database -->
