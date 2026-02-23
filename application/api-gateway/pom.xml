@@ -66,9 +66,17 @@
         </dependency>
 
         <!-- MVP modules wired in-process (monolith mode) -->
+        <!-- Sourcing Management -->
         <dependency>
             <groupId>com.marketplace</groupId>
             <artifactId>sourcing-management</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Catalog Management -->
+        <dependency>
+            <groupId>com.marketplace</groupId>
+            <artifactId>catalog-management</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

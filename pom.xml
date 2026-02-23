@@ -89,6 +89,7 @@
         <module>modules/contract-management</module>
         <module>modules/notification-service</module>
         <module>modules/analytics-service</module>
+        <module>modules/catalog-management</module>
         <!-- <module>modules/opportunity-service</module> -->
         
         <!-- Integration Modules -->
