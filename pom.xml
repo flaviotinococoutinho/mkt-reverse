@@ -60,6 +60,9 @@
         <!-- Blockchain -->
         <web3j.version>4.10.3</web3j.version>
         
+        <!-- Scheduling -->
+        <shedlock.version>5.13.0</shedlock.version>
+
         <!-- ML/AI -->
         <deeplearning4j.version>1.0.0-M2.1</deeplearning4j.version>
 
@@ -239,6 +242,18 @@
                 <version>${micrometer.version}</version>
             </dependency>
             
+            <!-- ShedLock -->
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-spring</artifactId>
+                <version>${shedlock.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-provider-jdbc-template</artifactId>
+                <version>${shedlock.version}</version>
+            </dependency>
+
             <!-- Testing -->
             <dependency>
                 <groupId>com.github.tomakehurst</groupId>
