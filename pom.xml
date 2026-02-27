@@ -60,6 +60,9 @@
         <!-- Blockchain -->
         <web3j.version>4.10.3</web3j.version>
         
+        <!-- Distributed Lock -->
+        <shedlock.version>5.10.2</shedlock.version>
+
         <!-- ML/AI -->
         <deeplearning4j.version>1.0.0-M2.1</deeplearning4j.version>
 
