@@ -43,7 +43,13 @@ CREATE TABLE assets (
 );
 
 -- Recommended index for JSONB queries
-CREATE INDEX idx_assets_attributes ON assets USING GIN (attributes);
+-- H2 compatibility check
+-- In real prod environment, one would apply a postgres-specific script or
+-- only execute this if not h2, but Flyway does not have built-in conditional
+-- syntax for this in standard plain SQL scripts without vendor-specific workarounds.
+-- Given H2 doesn't support GIN, we can either remove the index or use standard indexing.
+-- Removing the index creation as H2 doesn't understand 'USING GIN' and it's mostly for optimization.
+-- CREATE INDEX idx_assets_attributes ON assets USING GIN (attributes);
 
 CREATE TABLE asset_relationships (
     id BIGSERIAL PRIMARY KEY,
