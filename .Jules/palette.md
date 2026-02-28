@@ -1,0 +1,3 @@
+## 2024-05-20 - Icon-only buttons lacking ARIA labels
+**Learning:** This application has a pattern of using icon-only buttons (like pagination arrows in `Pager.tsx` and remove actions in `AttributeEditor.tsx`) without providing accessible names via `aria-label` or `sr-only` text. Screen reader users would only hear "button" for these controls.
+**Action:** When creating or reviewing components with icon-only interactive elements, ensure an `aria-label` or visually hidden text is always provided.
