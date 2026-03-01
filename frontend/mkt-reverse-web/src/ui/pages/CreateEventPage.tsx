@@ -18,6 +18,10 @@ export function CreateEventPage() {
   const [attributes, setAttributes] = useState<SpecAttribute[]>(defaultAttributes)
   const [form, setForm] = useState({
     // Form fields will be initialized from user context if available
+    tenantId: '',
+    buyerOrganizationId: '',
+    buyerContactName: '',
+    buyerContactPhone: '',
     title: '',
     description: '',
     mccCategoryCode: 5533, // Default for MVP
@@ -27,7 +31,7 @@ export function CreateEventPage() {
     unitOfMeasure: 'UN',
     quantityRequired: 1,
     validForHours: 24,
-    estimatedBudgetCents: undefined,
+    estimatedBudgetCents: undefined as number | undefined,
   })
 
   // Initialize form with user data when user changes

@@ -1,0 +1,3 @@
+## 2023-10-24 - Accessibility on Icon-only Buttons
+**Learning:** Found that custom settings toggle and list removal buttons often rely entirely on icons without providing context to screen readers, missing both `aria-label` and `aria-expanded` attributes. This breaks the experience for users dependent on screen readers in complex data entry forms like the Attribute Editor.
+**Action:** Always ensure icon-only buttons (`SettingsDock.tsx`, `AttributeEditor.tsx`) have contextual `aria-label`s. For dynamic lists, provide labels specifying exactly which item will be deleted (e.g. `aria-label={\`Remover atributo \${attr.key}\`}`). For dock buttons, add `aria-expanded` to indicate state.
