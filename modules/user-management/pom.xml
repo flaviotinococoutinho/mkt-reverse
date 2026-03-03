@@ -56,7 +56,7 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
         
-        <!-- Spring Kafka -->
+        <!-- Messaging -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
@@ -156,11 +156,6 @@
             <scope>test</scope>
         </dependency>
         
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>kafka</artifactId>
-            <scope>test</scope>
-        </dependency>
         
         <dependency>
             <groupId>com.github.tomakehurst</groupId>
