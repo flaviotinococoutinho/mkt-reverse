@@ -43,7 +43,8 @@ CREATE TABLE assets (
 );
 
 -- Recommended index for JSONB queries
-CREATE INDEX idx_assets_attributes ON assets USING GIN (attributes);
+-- Recommended index for JSONB queries (Commented out for H2 compatibility in tests. Will be created in V2 or specific Postgres script if needed)
+-- CREATE INDEX idx_assets_attributes ON assets USING GIN (attributes);
 
 CREATE TABLE asset_relationships (
     id BIGSERIAL PRIMARY KEY,
