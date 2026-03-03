@@ -137,6 +137,7 @@ export function AttributeEditor({ attributes, onChange, error }: AttributeEditor
                 className="btn btn-secondary"
                 style={{ padding: '0.25rem 0.5rem' }}
                 title="Remover atributo"
+                aria-label="Remover atributo"
               >
                 <XMarkIcon style={{ width: '16px', height: '16px' }} />
               </button>
