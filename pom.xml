@@ -49,9 +49,6 @@
         <!-- JSON -->
         <jackson.version>2.16.1</jackson.version>
         
-        <!-- ShedLock -->
-        <shedlock.version>5.10.0</shedlock.version>
-
         <!-- Testing -->
         <junit.version>5.10.1</junit.version>
         <mockito.version>5.8.0</mockito.version>
@@ -242,18 +239,6 @@
                 <version>${micrometer.version}</version>
             </dependency>
             
-            <!-- ShedLock -->
-            <dependency>
-                <groupId>net.javacrumbs.shedlock</groupId>
-                <artifactId>shedlock-spring</artifactId>
-                <version>${shedlock.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.javacrumbs.shedlock</groupId>
-                <artifactId>shedlock-provider-jdbc-template</artifactId>
-                <version>${shedlock.version}</version>
-            </dependency>
-
             <!-- Testing -->
             <dependency>
                 <groupId>com.github.tomakehurst</groupId>

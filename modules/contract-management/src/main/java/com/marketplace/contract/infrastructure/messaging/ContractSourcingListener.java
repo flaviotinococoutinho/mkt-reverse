@@ -1,7 +1,7 @@
 package com.marketplace.contract.infrastructure.messaging;
 
 import com.marketplace.contract.application.ContractApplicationService;
-import com.marketplace.sourcing.application.port.input.SourcingEventUseCases;
+import com.marketplace.sourcing.application.SourcingMvpService;
 import com.marketplace.sourcing.domain.event.SourcingEventStatusChangedEvent;
 import com.marketplace.sourcing.domain.model.SourcingEvent;
 import com.marketplace.sourcing.domain.valueobject.SourcingEventStatus;
@@ -16,9 +16,9 @@ public class ContractSourcingListener {
     private static final Logger log = LoggerFactory.getLogger(ContractSourcingListener.class);
 
     private final ContractApplicationService contractService;
-    private final SourcingEventUseCases sourcingService;
+    private final SourcingMvpService sourcingService;
 
-    public ContractSourcingListener(ContractApplicationService contractService, SourcingEventUseCases sourcingService) {
+    public ContractSourcingListener(ContractApplicationService contractService, SourcingMvpService sourcingService) {
         this.contractService = contractService;
         this.sourcingService = sourcingService;
     }
@@ -26,13 +26,12 @@ public class ContractSourcingListener {
     @EventListener
     public void onSourcingEventStatusChanged(SourcingEventStatusChangedEvent event) {
         // Only interested when an event is AWARDED
-        if (event.getMetadata().hasProperty("newStatus") &&
-            SourcingEventStatus.AWARDED.name().equals(event.getMetadata().getStringProperty("newStatus"))) {
+        if (event.getMetadata().getAttributes().get("newStatus").equals(SourcingEventStatus.AWARDED.name())) {
             log.info("Sourcing Event {} awarded. Creating draft contract...", event.getAggregateId());
 
             try {
                 // Fetch full sourcing event details
-                SourcingEvent sourcingEvent = sourcingService.getEvent(event.getAggregateId(), null);
+                SourcingEvent sourcingEvent = sourcingService.getEvent(event.getAggregateId());
 
                 contractService.createContractFromAward(
                         sourcingEvent.getBuyerContext().getTenantId(),
