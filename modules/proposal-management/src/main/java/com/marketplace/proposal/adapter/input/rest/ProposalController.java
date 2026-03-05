@@ -1,10 +1,12 @@
 package com.marketplace.proposal.adapter.input.rest;
 
 import com.marketplace.proposal.application.dto.request.SubmitProposalRequest;
+import com.marketplace.proposal.application.dto.request.UpdateProposalRequest;
 import com.marketplace.proposal.application.dto.response.ProposalResponse;
 import com.marketplace.proposal.application.port.input.FindProposalsByOpportunityUseCase;
 import com.marketplace.proposal.application.port.input.GetProposalUseCase;
 import com.marketplace.proposal.application.port.input.SubmitProposalUseCase;
+import com.marketplace.proposal.application.port.input.UpdateProposalUseCase;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,15 +44,18 @@ public class ProposalController {
     private final SubmitProposalUseCase submitProposalUseCase;
     private final GetProposalUseCase getProposalUseCase;
     private final FindProposalsByOpportunityUseCase findProposalsByOpportunityUseCase;
+    private final UpdateProposalUseCase updateProposalUseCase;
     
     public ProposalController(
         SubmitProposalUseCase submitProposalUseCase,
         GetProposalUseCase getProposalUseCase,
-        FindProposalsByOpportunityUseCase findProposalsByOpportunityUseCase
+        FindProposalsByOpportunityUseCase findProposalsByOpportunityUseCase,
+        UpdateProposalUseCase updateProposalUseCase
     ) {
         this.submitProposalUseCase = submitProposalUseCase;
         this.getProposalUseCase = getProposalUseCase;
         this.findProposalsByOpportunityUseCase = findProposalsByOpportunityUseCase;
+        this.updateProposalUseCase = updateProposalUseCase;
     }
     
     /**
@@ -126,12 +131,11 @@ public class ProposalController {
     )
     public Mono<ProposalResponse> updateProposal(
         @PathVariable Long proposalId,
-        @Valid @RequestBody SubmitProposalRequest request
+        @Valid @RequestBody UpdateProposalRequest request
     ) {
         logger.info("Received request to update proposal: proposalId={}", proposalId);
         
-        // TODO: Implement UpdateProposalUseCase
-        return Mono.empty();
+        return updateProposalUseCase.execute(proposalId, request);
     }
     
     /**
