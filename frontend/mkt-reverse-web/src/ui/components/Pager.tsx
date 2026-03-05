@@ -12,17 +12,29 @@ export function Pager({ page, totalPages, onPrev, onNext }: Props) {
   const canNext = totalPages ? page + 1 < totalPages : true
 
   return (
-    <div className="pager">
-      <button className="btn" onClick={onPrev} disabled={!canPrev}>
+    <nav className="pager" aria-label="Pagination">
+      <button
+        className="btn"
+        onClick={onPrev}
+        disabled={!canPrev}
+        aria-label="Previous page"
+        title="Previous page"
+      >
         ←
       </button>
-      <div className="pagerText">
+      <div className="pagerText" aria-live="polite" aria-atomic="true">
         <span className="mono">page</span> {page + 1} <span className="muted">/ {totalPages || 1}</span>
       </div>
-      <button className="btn" onClick={onNext} disabled={!canNext}>
+      <button
+        className="btn"
+        onClick={onNext}
+        disabled={!canNext}
+        aria-label="Next page"
+        title="Next page"
+      >
         →
       </button>
-    </div>
+    </nav>
   )
 }
 
