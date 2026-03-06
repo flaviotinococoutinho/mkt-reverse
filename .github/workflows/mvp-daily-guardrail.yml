@@ -75,7 +75,7 @@ jobs:
         env:
           SMOKE_MAX_TOTAL_MS: '90000'
           SMOKE_MAX_STEP_MS: '30000'
-          SMOKE_REPORT_PATH: application/web-app/build/smoke-report.json
+          SMOKE_REPORT_PATH: application/web-app/build/smoke-mvp-report.json
         run: make smoke-mvp-report-check
 
       - name: Upload smoke report and logs
@@ -84,7 +84,7 @@ jobs:
         with:
           name: mvp-smoke-artifacts
           path: |
-            application/web-app/build/smoke-report.json
+            application/web-app/build/smoke-mvp-report.json
             /tmp/api-gateway.log
           if-no-files-found: warn
 
