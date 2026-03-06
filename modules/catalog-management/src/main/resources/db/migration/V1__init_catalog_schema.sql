@@ -43,7 +43,8 @@ CREATE TABLE assets (
 );
 
 -- Recommended index for JSONB queries
-CREATE INDEX idx_assets_attributes ON assets USING GIN (attributes);
+-- H2 database does not support GIN index, so we avoid it for tests
+-- CREATE INDEX idx_assets_attributes ON assets USING GIN (attributes);
 
 CREATE TABLE asset_relationships (
     id BIGSERIAL PRIMARY KEY,
