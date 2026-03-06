@@ -31,7 +31,7 @@ export function SettingsDock() {
 
   return (
     <div className="dock">
-      <button className="btn ghost" onClick={() => setOpen((v) => !v)}>
+      <button className="btn ghost" onClick={() => setOpen((v) => !v)} aria-label="Toggle settings" aria-expanded={open}>
         <span className="mono">ctx</span>
       </button>
 
