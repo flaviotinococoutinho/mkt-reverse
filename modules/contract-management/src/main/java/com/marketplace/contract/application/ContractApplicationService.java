@@ -8,6 +8,7 @@ import com.marketplace.shared.valueobject.Money;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -29,29 +30,36 @@ public class ContractApplicationService {
             String sellerId,
             Money amount
     ) {
-        ContractId id = ContractId.of(idGenerator.nextId());
+        ContractId id = ContractId.of(String.valueOf(idGenerator.nextId()));
 
         // Define parties
-        ContractParty buyer = new ContractParty(buyerId, PartyRole.BUYER);
-        ContractParty seller = new ContractParty(sellerId, PartyRole.SUPPLIER);
+        ContractParty buyer = ContractParty.of(PartyRole.BUYER, buyerId, "System Generated", "system@example.com");
+        ContractParty seller = ContractParty.of(PartyRole.SUPPLIER, sellerId, "System Generated", "system@example.com");
 
-        // MVP Terms: simple fixed price contract
-        ContractTerm mainTerm = new ContractTerm(
-                "Fixed Price Execution",
-                "Contract generated automatically from Sourcing Event " + sourcingEventId
+        // MVP Terms: simple fixed price contract for 1 year
+        LocalDate today = LocalDate.now();
+        ContractTerm mainTerm = ContractTerm.of(
+            today,
+            today.plusYears(1),
+            false,
+            null,
+            30
         );
 
         Contract contract = Contract.create(
-                id,
                 tenantId,
-                sourcingEventId,
-                ContractType.PURCHASE_ORDER,
-                List.of(buyer, seller),
-                List.of(mainTerm),
-                amount
+                sourcingEventId, // Use sourcingEventId as contractNumber for MVP
+                ContractType.SPOT, // Using SPOT since PURCHASE_ORDER doesn't exist in enum
+                amount,
+                mainTerm,
+                java.util.Collections.emptySet() // empty requirements
         );
+        contract.linkSourcingContext(sourcingEventId, null);
+        contract.addParty(buyer);
+        contract.addParty(seller);
 
         contractRepository.save(contract);
+        id = contract.getId();
         return id;
     }
 
