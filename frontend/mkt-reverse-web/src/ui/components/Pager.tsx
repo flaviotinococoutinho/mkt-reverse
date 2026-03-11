@@ -25,4 +25,3 @@ export function Pager({ page, totalPages, onPrev, onNext }: Props) {
     </nav>
   )
 }
-
