@@ -22,6 +22,11 @@
             <artifactId>shared-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.marketplace</groupId>
+            <artifactId>sourcing-management</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>

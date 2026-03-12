@@ -29,26 +29,23 @@ public class ContractApplicationService {
             String sellerId,
             Money amount
     ) {
-        ContractId id = ContractId.of(idGenerator.nextId());
+        ContractId id = ContractId.of(String.valueOf(idGenerator.nextId()));
 
-        // Define parties
-        ContractParty buyer = new ContractParty(buyerId, PartyRole.BUYER);
-        ContractParty seller = new ContractParty(sellerId, PartyRole.SUPPLIER);
-
-        // MVP Terms: simple fixed price contract
-        ContractTerm mainTerm = new ContractTerm(
-                "Fixed Price Execution",
-                "Contract generated automatically from Sourcing Event " + sourcingEventId
+        ContractTerm mainTerm = ContractTerm.of(
+                java.time.LocalDate.now(),
+                java.time.LocalDate.now().plusMonths(1),
+                false,
+                null,
+                30
         );
 
         Contract contract = Contract.create(
-                id,
                 tenantId,
                 sourcingEventId,
-                ContractType.PURCHASE_ORDER,
-                List.of(buyer, seller),
-                List.of(mainTerm),
-                amount
+                ContractType.SPOT,
+                amount,
+                mainTerm,
+                java.util.Set.of(buyerId, sellerId)
         );
 
         contractRepository.save(contract);
