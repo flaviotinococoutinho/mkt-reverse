@@ -2,6 +2,7 @@ package com.marketplace.proposal.adapter.input.rest;
 
 import com.marketplace.proposal.application.dto.request.SubmitProposalRequest;
 import com.marketplace.proposal.application.dto.response.ProposalResponse;
+import com.marketplace.proposal.application.port.input.AcceptProposalUseCase;
 import com.marketplace.proposal.application.port.input.FindProposalsByOpportunityUseCase;
 import com.marketplace.proposal.application.port.input.GetProposalUseCase;
 import com.marketplace.proposal.application.port.input.SubmitProposalUseCase;
@@ -42,15 +43,18 @@ public class ProposalController {
     private final SubmitProposalUseCase submitProposalUseCase;
     private final GetProposalUseCase getProposalUseCase;
     private final FindProposalsByOpportunityUseCase findProposalsByOpportunityUseCase;
+    private final AcceptProposalUseCase acceptProposalUseCase;
     
     public ProposalController(
         SubmitProposalUseCase submitProposalUseCase,
         GetProposalUseCase getProposalUseCase,
-        FindProposalsByOpportunityUseCase findProposalsByOpportunityUseCase
+        FindProposalsByOpportunityUseCase findProposalsByOpportunityUseCase,
+        AcceptProposalUseCase acceptProposalUseCase
     ) {
         this.submitProposalUseCase = submitProposalUseCase;
         this.getProposalUseCase = getProposalUseCase;
         this.findProposalsByOpportunityUseCase = findProposalsByOpportunityUseCase;
+        this.acceptProposalUseCase = acceptProposalUseCase;
     }
     
     /**
@@ -162,8 +166,19 @@ public class ProposalController {
     public Mono<ProposalResponse> acceptProposal(@PathVariable Long proposalId) {
         logger.info("Received request to accept proposal: proposalId={}", proposalId);
         
-        // TODO: Implement AcceptProposalUseCase
-        return Mono.empty();
+        return acceptProposalUseCase.execute(proposalId)
+            .switchIfEmpty(Mono.error(new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Proposal not found"
+            )))
+            .onErrorMap(IllegalStateException.class, e -> new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                e.getMessage()
+            ))
+            .onErrorMap(IllegalArgumentException.class, e -> new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                e.getMessage()
+            ));
     }
     
     /**
