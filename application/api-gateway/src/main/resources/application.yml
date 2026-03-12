@@ -37,6 +37,8 @@ management:
     # Redis is not required for the current MVP slice (and may not be running in local/dev).
     redis:
       enabled: false
+    rabbit:
+      enabled: false
 
 logging:
   pattern:
