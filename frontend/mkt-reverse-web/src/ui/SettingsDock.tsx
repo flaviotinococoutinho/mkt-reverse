@@ -31,12 +31,18 @@ export function SettingsDock() {
 
   return (
     <div className="dock">
-      <button className="btn ghost" onClick={() => setOpen((v) => !v)}>
+      <button
+        className="btn ghost"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Toggle context settings"
+        aria-expanded={open}
+        aria-controls="settings-dock-panel"
+      >
         <span className="mono">ctx</span>
       </button>
 
       {open && (
-        <div className="dockPanel" role="dialog" aria-label="Context settings">
+        <div id="settings-dock-panel" className="dockPanel" role="dialog" aria-label="Context settings">
           <div className="dockTitle">Context</div>
           <div className="dockHint">
             IDs here are not “app state”; they only parameterize API calls.
