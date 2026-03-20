@@ -1,0 +1,45 @@
+<<<<<<< SEARCH
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: marketplace_main
+          POSTGRES_USER: marketplace_user
+          POSTGRES_PASSWORD: marketplace_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marketplace_user -d marketplace_main"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+=======
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: marketplace_main
+          POSTGRES_USER: marketplace_user
+          POSTGRES_PASSWORD: marketplace_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marketplace_user -d marketplace_main"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+>>>>>>> REPLACE
