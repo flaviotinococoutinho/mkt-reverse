@@ -1,3 +1,7 @@
 ## 2024-03-11 - Add ARIA Labels to Pagination Pager Controls
 **Learning:** Found a specific component (`Pager.tsx`) utilizing icon-only buttons ("←" and "→") for previous/next navigation without accompanying ARIA labels, making it inaccessible to screen readers. Also lacked a descriptive `role="navigation"` to establish it as pagination.
 **Action:** When working on generic shared controls (like paginators, carousels), ensure that icon-only interactive elements carry descriptive `aria-label`s. Wrapper elements for distinct navigation zones must use `nav` or `role="navigation"` coupled with a meaningful `aria-label` like "Pagination".
+
+## 2024-05-18 - Improve accessibility in dynamic list item actions and inline validation errors
+**Learning:** Found dynamic list item actions in `AttributeEditor.tsx` where the "Remover atributo" button lacked context for screen readers when multiple items were present. Inline validation error containers also lacked the `role="alert"` attribute, meaning screen readers wouldn't announce errors immediately when they appeared.
+**Action:** When working on dynamic lists (like key-value attributes), always interpolate the item's identifying value into the `aria-label` for list item actions (e.g., `aria-label={attr.key ? \`Remover atributo \${attr.key}\` : \`Remover atributo \${index + 1}\`}`) to provide specific context for screen readers. Always add the `role="alert"` attribute to inline validation error containers so screen readers announce them immediately.
