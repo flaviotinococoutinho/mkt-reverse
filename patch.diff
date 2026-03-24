@@ -1,0 +1,14 @@
+--- .github/workflows/mvp-daily-guardrail.yml
++++ .github/workflows/mvp-daily-guardrail.yml
+@@ -21,6 +21,12 @@
+           --health-interval 10s
+           --health-timeout 5s
+           --health-retries 10
++      rabbitmq:
++        image: rabbitmq:3-management
++        ports:
++          - 5672:5672
++          - 15672:15672
+
+     steps:
+       - name: Checkout
