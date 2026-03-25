@@ -24,12 +24,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
-      rabbitmq:
-        image: rabbitmq:3-management
-        ports:
-          - 5672:5672
-          - 15672:15672
-        options: --health-cmd "rabbitmq-diagnostics -q ping" --health-interval 10s --health-timeout 5s --health-retries 10
 
     steps:
       - name: Checkout
