@@ -9,6 +9,8 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+  flyway:
+    enabled: false
   main:
     allow-bean-definition-overriding: true
 server:
