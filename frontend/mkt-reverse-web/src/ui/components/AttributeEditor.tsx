@@ -136,7 +136,6 @@ export function AttributeEditor({ attributes, onChange, error }: AttributeEditor
                 onClick={() => removeAttribute(index)}
                 className="btn btn-secondary"
                 style={{ padding: '0.25rem 0.5rem' }}
-                title="Remover atributo"
                 aria-label={`Remover atributo ${attr.key || index}`}
               >
                 <XMarkIcon style={{ width: '16px', height: '16px' }} />
