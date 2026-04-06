@@ -5,7 +5,7 @@ import { ApiError } from '@/api/http'
 export function ApiErrorBox({ error, title }: { error: unknown; title?: string }) {
   const e = error as ApiError
   return (
-    <div className="error" role="alert">
+    <div className="error" role="alert" aria-live="assertive">
       <div className="errorTitle">{title ?? 'Falha na chamada'}</div>
       <div className="errorBody">
         <div>
