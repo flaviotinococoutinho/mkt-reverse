@@ -1,4 +1,4 @@
-import api from './api';
+import api, { setTokens, clearTokens, setUser, getAccessToken } from './api';
 import { phoneToMvpEmail } from '../lib/phone';
 
 export interface User {
@@ -6,12 +6,12 @@ export interface User {
   name: string;
   email: string;
   role: 'buyer' | 'supplier';
-  organizationId?: string;
   tenantId: string;
 }
 
 export interface AuthResponse {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
   user: User;
 }
 
@@ -39,10 +39,10 @@ export const authService = {
       password: credentials.password,
     });
 
-    const { token, user } = response.data;
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    return { token, user };
+    const { accessToken, refreshToken, user } = response.data;
+    setTokens(accessToken, refreshToken);
+    setUser(user);
+    return { accessToken, refreshToken, user };
   },
 
   async register(data: RegisterData): Promise<AuthResponse> {
@@ -62,24 +62,35 @@ export const authService = {
       userType: data.role === 'supplier' ? 'SUPPLIER' : 'BUYER',
     });
 
-    const { token, user } = response.data;
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    return { token, user };
+    const { accessToken, refreshToken, user } = response.data;
+    setTokens(accessToken, refreshToken);
+    setUser(user);
+    return { accessToken, refreshToken, user };
   },
 
-  logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
+  async logout() {
+    try {
+      const token = getAccessToken();
+      if (token) {
+        await api.post('/auth/logout', {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+    } catch (error) {
+      // Ignore logout errors - just clear local state
+      console.warn('Logout API call failed:', error);
+    } finally {
+      clearTokens();
+      window.location.href = '/login';
+    }
   },
 
   getCurrentUser(): User | null {
     const userStr = localStorage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;
   },
-  
+
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('token');
+    return !!getAccessToken();
   }
 };

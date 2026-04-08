@@ -43,3 +43,8 @@ management:
 logging:
   pattern:
     level: "%5p [corr=%X{correlationId:-}]"
+
+jwt:
+  secret: ${JWT_SECRET:queroja-mvp-secret-key-minimo-256-bits-para-hs256}
+  access-token-validity-ms: ${JWT_ACCESS_TOKEN_VALIDITY:3600000}
+  refresh-token-validity-ms: ${JWT_REFRESH_TOKEN_VALIDITY:604800000}
