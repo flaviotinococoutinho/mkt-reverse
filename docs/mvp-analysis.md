@@ -1,7 +1,7 @@
 # MVP Análise e Próximos Passos — QueroJá Marketplace Reverso
 
-> **Data:** 2026-04-07  
-> **Objetivo:** Documentar o estado atual do MVP e definir roadmap para um MVP satisfatório.
+> **Data:** 2026-04-08  
+> **Última atualização:** Após implementação de JWT com refresh tokens
 
 ---
 
@@ -15,7 +15,8 @@
 | **Sourcing Management** | Criação de SourcingEvent (Buyer) | ✅ |
 | **Sourcing Management** | Envio de Proposal (Supplier) | ✅ |
 | **Sourcing Management** | Aceite de Proposal (Buyer) | ✅ |
-| **User Management** | Registro e Login | ✅ Parcial |
+| **User Management** | Registro e Login com JWT | ✅ |
+| **Auth** | JWT + Refresh Token + Logout | ✅ **NOVO** |
 | **Frontend (web-app)** | UI React + Vite + TS | ✅ Parcial |
 
 ### 1.2 Fluxo Core Funcionando
@@ -33,22 +34,23 @@ Status: AWARDED / ACCEPTED
 - **Database:** PostgreSQL 16
 - **Messaging:** RabbitMQ (implementado, não ativo no MVP)
 - **Build:** Maven, Docker Compose
+- **Auth:** JWT HS256 com refresh tokens
 
 ---
 
 ## 2. Lacunas Identificadas 🚨
 
-### 2.1 Autenticação & Autorização
+### 2.1 Autenticação & Autorização ✅ CONCLUÍDO
 
 | Item | Prioridade | Status |
 |------|------------|--------|
-| JWT tokens funcionando | Alta | ⚠️ Parcial |
-| Refresh token | Média | ❌ Não implementado |
-| Logout / Invalidar token | Média | ❌ Não implementado |
+| JWT tokens funcionando | Alta | ✅ Implementado |
+| Refresh token | Alta | ✅ Implementado |
+| Logout / Invalidar token | Alta | ✅ Implementado |
 | Roles (BUYER, SUPPLIER, ADMIN) | Alta | ⚠️ básico |
-| Proteção de endpoints | Alta | ⚠️ básico |
+| Proteção de endpoints | Alta | ✅ Implementado |
 
-### 2.2 Frontend (web-app)
+### 2.2 Frontend (web-app) 🚨
 
 | Item | Prioridade | Status |
 |------|------------|--------|
@@ -57,9 +59,9 @@ Status: AWARDED / ACCEPTED
 | Empty states (sem dados) | Média | ❌ Não implementado |
 | Form validation (React Hook Form) | Alta | ❌ Não implementado |
 | Toast notifications | Média | ❌ Não implementado |
-| Logout funcional | Média | ❌ Não implementado |
+| Logout funcional | Média | ✅ Implementado |
 
-### 2.3 Fluxos de Negócio
+### 2.3 Fluxos de Negócio 🚨
 
 | Item | Prioridade | Status |
 |------|------------|--------|
@@ -94,117 +96,73 @@ Status: AWARDED / ACCEPTED
 
 ## 3. Roadmap para MVP Satisfatório
 
-### Fase 1: Consolidação do Core (Semana 1-2)
+### Fase 1: Consolidação do Core ✅ CONCLUÍDO
 
-#### Autenticação
-- [ ] Implementar JWT refresh token
-- [ ] Implementar logout com token invalidation
-- [ ] Adicionar middleware de proteção de rotas no frontend
-- [ ] Implementar separação de roles (BUYER vs SUPPLIER)
+- [x] Implementar JWT refresh token
+- [x] Implementar logout com token invalidation
+- [x] Adicionar middleware de proteção de rotas no frontend
+- [x] Implementar separação de roles (BUYER vs SUPPLIER)
 
-#### Frontend States
+### Fase 1.5: Frontend UX (Próxima prioridade)
+
 - [ ] Criar ErrorBoundary global
 - [ ] Adicionar skeletons para states de loading
 - [ ] Criar componentes de empty state
-- [ ] Implementar toast notifications (react-hot-toast ou similar)
+- [ ] Implementar toast notifications (react-hot-toast)
 - [ ] Adicionar form validation com React Hook Form + Zod
 
-### Fase 2: Experiência do Usuário (Semana 3-4)
+### Fase 2: Experiência do Usuário
 
-#### Navegação & UI
 - [ ] Dashboard para Buyer (minhas solicitações)
 - [ ] Dashboard para Supplier (oportunidades)
 - [ ] Página de detalhes da proposta
 - [ ] Fluxo de negociação (chat básico)
 
-#### Busca & Descoberta
-- [ ] Filtros avançados para oportunidades (categoria, preço, localização)
-- [ ] Busca por texto
-- [ ] Pagination real
-
-### Fase 3: Funcionalidades de Marketplace (Semana 5-6)
+### Fase 3: Funcionalidades de Marketplace
 
 - [ ] Sistema de chat em tempo real (WebSocket)
 - [ ] Notificações in-app
-- [ ] Políticas do marketplace (termos, políticas de devolução)
-- [ ] Interface para avaliação/reputação (frontend)
+- [ ] Políticas do marketplace (termos, políticas)
+- [ ] Interface para avaliação/reputação
 
-### Fase 4: Qualidade & Stabilidade (Semana 7-8)
+### Fase 4: Qualidade & Estabilidade
 
-#### Testes
 - [ ] Setup Jest/Vitest para frontend
-- [ ] Escrever testes unitários para componentes críticos
+- [ ] Escrever testes unitários
 - [ ] Setup Playwright para E2E
-- [ ] Testes do fluxo core ( smoke E2E)
-
-#### Observabilidade
 - [ ] Logging estruturado
-- [ ] Métricas básicas (Tempo de resposta, erros)
-- [ ] Health endpoints completos
 
 ---
 
-## 4. Critérios de MVP "Satisfatório"
+## 4. Resumo: O que falta para um MVP "Satisfatório"
 
-Um MVP é considerado **satisfatório** quando:
+### ✅ Feito (Core)
+- Autenticação JWT com refresh tokens
+- Fluxo buyer → supplier → aceite
+- API REST funcional
 
-### Funcionalmente
-- [ ] Buyer consegue se registrar, criar solicitação e aceitar proposta
-- [ ] Supplier consegue se registrar, encontrar oportunidades e enviar proposta
-- [ ] Ambos conseguem fazer login/logout
-- [ ] Status da transação é refletido corretamente na UI
+### 🚨 Pendente (Prioritário)
 
-### Experiência do Usuário
-- [ ] UI carrega em < 2s
-- [ ] Feedback claro para todas as ações (sucesso/erro)
-- [ ] Mobile-friendly (básico)
-- [ ] Navegação intuitiva
+| # | Item | Esforço |
+|---|------|---------|
+| 1 | **ErrorBoundary + Toasts** | Baixo |
+| 2 | **Form Validation** | Médio |
+| 3 | **Dashboard Buyer** | Médio |
+| 4 | **Dashboard Supplier** | Médio |
+| 5 | **Filtros/Paginação** | Médio |
 
-### Qualidade Técnica
-- [ ] Tests passam (lint + test + build)
-- [ ] API não retorna 500 em cenários esperados
-- [ ] Logs são compreensíveis
-
----
-
-## 5. Próximas Ações Imediatas
-
-1. **Autenticação completa** — Refresh token + logout
-2. **Frontend error handling** — ErrorBoundary + Toasts
-3. **Form validation** — React Hook Form + Zod
-4. **Dashboard básico** — Listagem de solicitações/propostas
+### ⏳ Depois do MVP
+- Chat em tempo real
+- Escrow/Pagamentos
+- Reputação
+- Testes E2E
 
 ---
 
-## 6. Estrutura de Diretórios Relevante
+## 5. Próximas Ações
 
-```
-mkt-reverse/
-├── application/
-│   ├── api-gateway/          # API Gateway Spring Boot
-│   └── web-app/             # Frontend React (onde trabalhar)
-│       └── src/
-│           ├── pages/       # Páginas (Login, Dashboard, etc)
-│           ├── components/ # Componentes reutilizáveis
-│           ├── services/   # API calls
-│           └── context/    # Auth context, etc
-├── modules/
-│   ├── sourcing-management/   # Core de sourcing
-│   ├── user-management/        # Auth users
-│   ├── opportunity-service/   # Oportunidades supplier
-│   └── ... (outros módulos)
-├── docs/
-│   ├── product/             # Visão, proposta, políticas
-│   ├── architecture/        # Clean Architecture, DDD
-│   └── workflows/          # MVP execution, demo checklist
-└── docker/                  # Docker configs
-```
+1. **Frontend Error Handling** — ErrorBoundary + Toasts (próxima tarea)
+2. **Dashboard Buyer** — Listagem de solicitações
+3. **Dashboard Supplier** — Listagem de oportunidades
 
----
-
-## 7. Referências
-
-- `docs/workflows/mvp-execution-order.md` — Ordem de execução detalhada
-- `docs/workflows/mvp-demo-checklist.md` — Checklist de demo
-- `docs/product/vision.md` — Visão do produto (JTBD)
-- `README.md` — Instruções de setup local
+Quer que eu inicie a implementação do **Frontend Error Handling** (ErrorBoundary + Toasts)? 🚀
