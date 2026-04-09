@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { UserPlus } from 'lucide-react';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../context/useAuth';
@@ -9,33 +10,31 @@ import axios from 'axios';
 import { formatBrazilPhone } from '../../lib/phone';
 import { resetOnboardingState } from '../../lib/onboarding';
 import { getFriendlyAuthErrorMessage } from '../../lib/authErrorMessage';
-import { isStrongPassword, isValidBrazilPhone, isValidCnpj, isValidCpf } from '../../lib/authValidation';
+import { registerSchemaSimple, RegisterFormData } from '../../lib/schemas/auth';
+import { useToast } from '../../components/ui/feedback';
 
-function computeCpfCheckDigits(base9: number[]): [number, number] {
+function generateTestCpf(): string {
+  const base9 = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
+  if (base9.every((d) => d === base9[0])) return generateTestCpf();
+  
   let sum1 = 0;
-  for (let i = 0; i < 9; i += 1) sum1 += base9[i] * (10 - i);
+  for (let i = 0; i < 9; i++) sum1 += base9[i] * (10 - i);
   let d1 = 11 - (sum1 % 11);
   if (d1 >= 10) d1 = 0;
 
   const base10 = [...base9, d1];
   let sum2 = 0;
-  for (let i = 0; i < 10; i += 1) sum2 += base10[i] * (11 - i);
+  for (let i = 0; i < 10; i++) sum2 += base10[i] * (11 - i);
   let d2 = 11 - (sum2 % 11);
   if (d2 >= 10) d2 = 0;
 
-  return [d1, d2];
+  return [...base9, d1, d2].join('');
 }
 
-function generateTestCpf(): string {
-  while (true) {
-    const base9 = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
-    if (base9.every((d) => d === base9[0])) continue;
-    const [d1, d2] = computeCpfCheckDigits(base9);
-    return [...base9, d1, d2].join('');
-  }
-}
+function generateTestCnpj(): string {
+  const base12 = Array.from({ length: 12 }, () => Math.floor(Math.random() * 10));
+  if (base12.every((d) => d === base12[0])) return generateTestCnpj();
 
-function computeCnpjCheckDigits(base12: number[]): [number, number] {
   const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
   let sum1 = 0;
   for (let i = 0; i < 12; i++) sum1 += base12[i] * weights1[i];
@@ -49,120 +48,77 @@ function computeCnpjCheckDigits(base12: number[]): [number, number] {
   let d2 = 11 - (sum2 % 11);
   if (d2 >= 10) d2 = 0;
 
-  return [d1, d2];
-}
-
-function generateTestCnpj(): string {
-  while (true) {
-    const base12 = Array.from({ length: 12 }, () => Math.floor(Math.random() * 10));
-    if (base12.every((d) => d === base12[0])) continue;
-    const [d1, d2] = computeCnpjCheckDigits(base12);
-    return [...base12, d1, d2].join('');
-  }
+  return [...base12, d1, d2].join('');
 }
 
 export default function Register() {
-  const [role, setRole] = useState<'buyer' | 'supplier'>('buyer');
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    documentNumber: '',
-    documentType: 'CPF',
-    password: '',
-    confirmPassword: '',
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [serverError, setServerError] = React.useState<string | null>(null);
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { error: showError, success } = useToast();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    if (name === 'phone') {
-      setFormData({ ...formData, phone: formatBrazilPhone(value) });
-      return;
-    }
-    setFormData({ ...formData, [name]: value });
-  };
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchemaSimple),
+    defaultValues: {
+      name: '',
+      phone: '',
+      documentNumber: '',
+      documentType: 'CPF',
+      password: '',
+      confirmPassword: '',
+      role: 'buyer',
+    },
+  });
 
-  const setDocumentType = (documentType: 'CPF' | 'CNPJ') => {
-    setFormData({ ...formData, documentType });
-  };
+  const documentType = watch('documentType');
 
-  const phoneError =
-    formData.phone.length > 0 && !isValidBrazilPhone(formData.phone)
-      ? 'Informe um telefone/WhatsApp válido (10 ou 11 dígitos).'
-      : null;
-
-  const documentError = (() => {
-    if (!formData.documentNumber) return null;
-    if (formData.documentType === 'CPF' && !isValidCpf(formData.documentNumber)) {
-      return 'CPF inválido.';
-    }
-    if (formData.documentType === 'CNPJ' && !isValidCnpj(formData.documentNumber)) {
-      return 'CNPJ inválido.';
-    }
-    return null;
-  })();
-
-  const passwordError =
-    formData.password.length > 0 && !isStrongPassword(formData.password)
-      ? 'Use 8+ caracteres com maiúscula, minúscula, número e especial.'
-      : null;
-
-  const confirmPasswordError =
-    formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword
-      ? 'As senhas não conferem.'
-      : null;
-
-  const isFormInvalid =
-    !formData.name.trim()
-    || !formData.phone
-    || !formData.documentNumber
-    || !formData.password
-    || !formData.confirmPassword
-    || !!phoneError
-    || !!documentError
-    || !!passwordError
-    || !!confirmPasswordError;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-
-    if (isFormInvalid) {
-      setErrorMessage('Revise os campos obrigatórios antes de cadastrar.');
-      return;
-    }
+  const onSubmit = async (data: RegisterFormData) => {
+    setServerError(null);
     
-    setIsLoading(true);
     try {
       resetOnboardingState();
       const response = await authService.register({
-        name: formData.name,
-        phone: formData.phone,
-        password: formData.password,
-        role: role,
-        documentNumber: formData.documentNumber,
-        documentType: formData.documentType as 'CPF' | 'CNPJ',
+        name: data.name,
+        phone: data.phone,
+        password: data.password,
+        role: data.role,
+        documentNumber: data.documentNumber,
+        documentType: data.documentType as 'CPF' | 'CNPJ',
       });
-      login(response.user, response.token);
       
-      // Onboarding step: phone verification UI (simulated in MVP)
+      login(response.user, response.accessToken);
+      success('Conta criada!', 'Bem-vindo ao marketplace');
+      
       navigate('/verify-phone');
-    } catch (error) {
-      console.error('Registration failed', error);
+    } catch (err) {
+      console.error('Registration failed', err);
 
-      if (axios.isAxiosError(error)) {
-        const msg = getFriendlyAuthErrorMessage('register', error.response?.status, error.response?.data);
-        setErrorMessage(msg || error.message);
-        return;
+      let errorMessage = 'Falha ao cadastrar. Tente novamente.';
+      
+      if (axios.isAxiosError(err)) {
+        errorMessage = getFriendlyAuthErrorMessage('register', err.response?.status, err.response?.data) 
+          || err.message 
+          || errorMessage;
       }
 
-      setErrorMessage('Falha ao cadastrar. Tente novamente.');
-    } finally {
-      setIsLoading(false);
+      setServerError(errorMessage);
+      showError('Erro no cadastro', errorMessage);
     }
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setValue('phone', formatBrazilPhone(e.target.value));
+  };
+
+  const generateDocument = () => {
+    const docType = documentType === 'CPF' ? generateTestCpf() : generateTestCnpj();
+    setValue('documentNumber', docType);
   };
 
   return (
@@ -173,143 +129,183 @@ export default function Register() {
           <p className="text-zinc-400 text-sm">Cadastre-se para participar</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {errorMessage ? (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {serverError ? (
             <div className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-zinc-100">
               <div className="font-mono text-xs text-danger">CADASTRO_FALHOU</div>
-              <div className="mt-1">{errorMessage}</div>
-              <div className="mt-2 text-xs text-zinc-400">
-                Dica: CPF/CNPJ precisa ser <span className="text-zinc-200">válido (dígitos verificadores)</span>.
-              </div>
+              <div className="mt-1">{serverError}</div>
             </div>
           ) : null}
 
           <div className="flex justify-center space-x-4 pb-2">
             <button
               type="button"
-              onClick={() => setRole('buyer')}
-              className={`px-4 py-2 rounded-md transition-colors ${role === 'buyer' ? 'bg-citrus text-ink font-bold' : 'bg-ink border border-stroke text-zinc-400'}`}
+              onClick={() => setValue('role', 'buyer')}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                watch('role') === 'buyer' 
+                  ? 'bg-citrus text-ink font-bold' 
+                  : 'bg-ink border border-stroke text-zinc-400'
+              }`}
             >
               Comprador
             </button>
             <button
               type="button"
-              onClick={() => setRole('supplier')}
-              className={`px-4 py-2 rounded-md transition-colors ${role === 'supplier' ? 'bg-citrus text-ink font-bold' : 'bg-ink border border-stroke text-zinc-400'}`}
+              onClick={() => setValue('role', 'supplier')}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                watch('role') === 'supplier' 
+                  ? 'bg-citrus text-ink font-bold' 
+                  : 'bg-ink border border-stroke text-zinc-400'
+              }`}
             >
               Vendedor
             </button>
           </div>
 
-          <Input
-            name="name"
-            label="Nome Completo / Empresa"
-            placeholder="Seu nome"
-            value={formData.name}
-            onChange={handleChange}
-            required
-          />
+          <div className="space-y-1">
+            <label htmlFor="name" className="block text-sm font-medium text-zinc-300">
+              Nome Completo / Empresa <span className="text-red-400">*</span>
+            </label>
+            <input
+              id="name"
+              type="text"
+              placeholder="Seu nome"
+              {...register('name')}
+              className={`
+                w-full px-3 py-2 bg-ink border rounded-md text-zinc-200 placeholder-zinc-500
+                focus:outline-none focus:ring-2 focus:ring-citrus focus:border-transparent
+                ${errors.name ? 'border-red-500' : 'border-stroke'}
+              `}
+            />
+            {errors.name && (
+              <p className="text-sm text-red-400">{errors.name.message}</p>
+            )}
+          </div>
 
-          <Input
-            name="phone"
-            type="tel"
-            label="Telefone / WhatsApp"
-            placeholder="(11) 99999-9999"
-            value={formData.phone}
-            onChange={handleChange}
-            required
-            error={phoneError ?? undefined}
-          />
-
-          <p className="text-xs text-zinc-500 leading-relaxed -mt-4">
-            No MVP, o acesso é centrado em <span className="text-zinc-300">telefone/WhatsApp</span>.
-            Não há fluxo de email para cadastro, login ou notificações.
-          </p>
+          <div className="space-y-1">
+            <label htmlFor="phone" className="block text-sm font-medium text-zinc-300">
+              Telefone / WhatsApp <span className="text-red-400">*</span>
+            </label>
+            <input
+              id="phone"
+              type="text"
+              placeholder="(11) 99999-9999"
+              {...register('phone')}
+              onChange={handlePhoneChange}
+              className={`
+                w-full px-3 py-2 bg-ink border rounded-md text-zinc-200 placeholder-zinc-500
+                focus:outline-none focus:ring-2 focus:ring-citrus focus:border-transparent
+                ${errors.phone ? 'border-red-500' : 'border-stroke'}
+              `}
+            />
+            {errors.phone && (
+              <p className="text-sm text-red-400">{errors.phone.message}</p>
+            )}
+            <p className="text-xs text-zinc-500 -mt-2">
+              No MVP, o acesso é centrado em telefone/WhatsApp.
+            </p>
+          </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm text-zinc-400">Documento</label>
+              <label className="text-sm text-zinc-300">Documento <span className="text-red-400">*</span></label>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setDocumentType('CPF')}
-                  className={`px-3 py-1 rounded-md text-xs transition-colors ${formData.documentType === 'CPF' ? 'bg-citrus text-ink font-bold' : 'bg-ink border border-stroke text-zinc-400'}`}
+                  onClick={() => setValue('documentType', 'CPF')}
+                  className={`px-3 py-1 rounded-md text-xs transition-colors ${
+                    documentType === 'CPF' 
+                      ? 'bg-citrus text-ink font-bold' 
+                      : 'bg-ink border border-stroke text-zinc-400'
+                  }`}
                 >
                   CPF
                 </button>
                 <button
                   type="button"
-                  onClick={() => setDocumentType('CNPJ')}
-                  className={`px-3 py-1 rounded-md text-xs transition-colors ${formData.documentType === 'CNPJ' ? 'bg-citrus text-ink font-bold' : 'bg-ink border border-stroke text-zinc-400'}`}
+                  onClick={() => setValue('documentType', 'CNPJ')}
+                  className={`px-3 py-1 rounded-md text-xs transition-colors ${
+                    documentType === 'CNPJ' 
+                      ? 'bg-citrus text-ink font-bold' 
+                      : 'bg-ink border border-stroke text-zinc-400'
+                  }`}
                 >
                   CNPJ
                 </button>
               </div>
             </div>
 
-            <Input
-              name="documentNumber"
-              label={formData.documentType}
-              placeholder={formData.documentType === 'CPF' ? 'CPF válido (11 dígitos)' : 'CNPJ válido (14 dígitos)'}
-              value={formData.documentNumber}
-              onChange={handleChange}
-              required
-              error={documentError ?? undefined}
-            />
-
-            <div className="flex items-center justify-between text-xs text-zinc-500">
-              <span>
-                Para demo local, você pode usar um documento real ou gerar um de teste.
-              </span>
+            <div className="flex gap-2">
+              <input
+                id="documentNumber"
+                type="text"
+                placeholder={documentType === 'CPF' ? 'CPF válido (11 dígitos)' : 'CNPJ válido (14 dígitos)'}
+                {...register('documentNumber')}
+                className={`
+                  flex-1 px-3 py-2 bg-ink border rounded-md text-zinc-200 placeholder-zinc-500
+                  focus:outline-none focus:ring-2 focus:ring-citrus focus:border-transparent
+                  ${errors.documentNumber ? 'border-red-500' : 'border-stroke'}
+                `}
+              />
               <button
                 type="button"
-                className="font-mono text-citrus hover:underline"
-                onClick={() =>
-                  setFormData({
-                    ...formData,
-                    documentNumber:
-                      formData.documentType === 'CPF' ? generateTestCpf() : generateTestCnpj(),
-                  })
-                }
+                onClick={generateDocument}
+                className="px-3 py-2 text-xs text-citrus hover:underline border border-stroke rounded"
               >
                 gerar
               </button>
             </div>
+            {errors.documentNumber && (
+              <p className="text-sm text-red-400">{errors.documentNumber.message}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-             <Input
-              name="password"
-              type="password"
-              label="Senha"
-              placeholder="•••••••"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              error={passwordError ?? undefined}
-            />
-             <Input
-              name="confirmPassword"
-              type="password"
-              label="Confirmar"
-              placeholder="•••••••"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              error={confirmPasswordError ?? undefined}
-            />
+            <div className="space-y-1">
+              <label htmlFor="password" className="block text-sm font-medium text-zinc-300">
+                Senha <span className="text-red-400">*</span>
+              </label>
+              <input
+                id="password"
+                type="password"
+                placeholder="•••••••"
+                {...register('password')}
+                className={`
+                  w-full px-3 py-2 bg-ink border rounded-md text-zinc-200 placeholder-zinc-500
+                  focus:outline-none focus:ring-2 focus:ring-citrus focus:border-transparent
+                  ${errors.password ? 'border-red-500' : 'border-stroke'}
+                `}
+              />
+              {errors.password && (
+                <p className="text-sm text-red-400">{errors.password.message}</p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-zinc-300">
+                Confirmar <span className="text-red-400">*</span>
+              </label>
+              <input
+                id="confirmPassword"
+                type="password"
+                placeholder="•••••••"
+                {...register('confirmPassword')}
+                className={`
+                  w-full px-3 py-2 bg-ink border rounded-md text-zinc-200 placeholder-zinc-500
+                  focus:outline-none focus:ring-2 focus:ring-citrus focus:border-transparent
+                  ${errors.confirmPassword ? 'border-red-500' : 'border-stroke'}
+                `}
+              />
+              {errors.confirmPassword && (
+                <p className="text-sm text-red-400">{errors.confirmPassword.message}</p>
+              )}
+            </div>
           </div>
-
-          <p className="text-xs text-zinc-500 leading-relaxed">
-            Regras da senha (MVP): mínimo 8 caracteres, com <span className="text-zinc-300">maiúscula</span>, <span className="text-zinc-300">minúscula</span>, <span className="text-zinc-300">número</span> e <span className="text-zinc-300">especial</span> (ex: <span className="font-mono">@</span>).
-          </p>
 
           <Button
             type="submit"
             className="w-full"
-            isLoading={isLoading}
+            isLoading={isSubmitting}
             size="lg"
-            disabled={isFormInvalid}
           >
             <UserPlus className="mr-2 h-4 w-4" />
             Cadastrar
