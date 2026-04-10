@@ -6,7 +6,6 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
-import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -30,7 +29,6 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     "com.marketplace.shared"
 })
 @EnableJpaRepositories(basePackages = {
-    "com.marketplace.user.domain.repository",
     "com.marketplace.user.infrastructure.persistence"
 })
 @EnableJpaAuditing
@@ -38,7 +36,6 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableCaching
 @EnableAsync
 @EnableScheduling
-@EnableKafka
 public class UserManagementApplication {
 
     public static void main(String[] args) {

@@ -18,6 +18,12 @@ NC=\033[0m # No Color
 PROJECT_NAME=marketplace-reverso
 DOCKER_COMPOSE_FILE=docker-compose.yml
 MAVEN_OPTS=-Dmaven.test.skip=false
+SMOKE_REPORT_PATH?=./build/smoke-report.json
+SMOKE_MAX_TOTAL_MS?=60000
+SMOKE_MAX_STEP_MS?=25000
+SMOKE_MVP_REPORT_PATH?=./build/smoke-mvp-report.json
+SMOKE_MVP_MAX_TOTAL_MS?=90000
+SMOKE_MVP_MAX_STEP_MS?=45000
 
 help: ## Show this help message
 	@echo "$(BLUE)Marketplace Reverso - Available Commands$(NC)"
@@ -77,22 +83,44 @@ docker-up: ## Start all services with Docker Compose
 
 docker-up-infra: ## Start only infrastructure services
 	@echo "$(BLUE)Starting infrastructure services...$(NC)"
-	@docker-compose up -d postgres-main postgres-events redis kafka elasticsearch prometheus grafana jaeger minio mailhog
+	@docker-compose --profile platform up -d postgres-main postgres-events redis kafka prometheus grafana jaeger minio
 	@echo "$(GREEN)Infrastructure services started!$(NC)"
+	@echo "$(YELLOW)Elasticsearch is disabled by default (it may OOM). Use: docker-compose --profile es up -d elasticsearch$(NC)"
+
+docker-up-search: ## Start OpenSearch (search profile) for fuzzy directory search
+	@echo "$(BLUE)Starting OpenSearch...$(NC)"
+	@docker-compose --profile search up -d opensearch
+	@echo "$(GREEN)OpenSearch started (http://localhost:9201)$(NC)"
+
+docker-up-kong: ## Start Kong (DB-less) as an edge gateway on :8000
+	@echo "$(BLUE)Starting Kong gateway...$(NC)"
+	@docker-compose --profile edge up -d kong
+	@echo "$(GREEN)Kong started: http://localhost:8002 (proxy), http://localhost:8003 (admin)$(NC)"
+
+docker-logs-kong: ## Tail Kong logs
+	@docker-compose --profile edge logs -f kong
 
 docker-up-apps: ## Start only application services
 	@echo "$(BLUE)Starting application services...$(NC)"
-	@docker-compose up -d api-gateway user-management sourcing-management
+	@docker-compose up -d api-gateway web-app
 	@echo "$(GREEN)Application services started!$(NC)"
+	@echo "$(YELLOW)For OpenSearch fuzzy search: make docker-up-search (profile search)$(NC)"
+	@echo "$(YELLOW)Microservices mode (optional): docker-compose --profile microservices up -d user-management sourcing-management$(NC)"
+
+docker-up-ui: ## Start web UI (nginx + web-app + api-gateway)
+	@echo "$(BLUE)Starting web UI...$(NC)"
+	@docker-compose up -d nginx
+	@echo "$(GREEN)Web UI started!$(NC)"
+	@echo "$(YELLOW)UI: http://localhost$(NC)"
 
 docker-down: ## Stop all services
 	@echo "$(BLUE)Stopping all services...$(NC)"
-	@docker-compose down
+	@docker-compose --profile platform --profile edge --profile search --profile es --profile microservices down
 	@echo "$(GREEN)All services stopped!$(NC)"
 
 docker-down-volumes: ## Stop all services and remove volumes
 	@echo "$(RED)Stopping all services and removing volumes...$(NC)"
-	@docker-compose down -v
+	@docker-compose --profile platform --profile edge --profile search --profile es --profile microservices down -v
 	@echo "$(GREEN)All services stopped and volumes removed!$(NC)"
 
 docker-logs: ## Show logs from all services
@@ -103,7 +131,7 @@ docker-logs-app: ## Show logs from application services only
 
 docker-status: ## Show status of all services
 	@echo "$(BLUE)Service Status:$(NC)"
-	@docker-compose ps
+	@docker-compose --profile platform --profile edge --profile search --profile es --profile microservices ps
 
 docker-restart: ## Restart all services
 	@echo "$(BLUE)Restarting all services...$(NC)"
@@ -158,9 +186,9 @@ health-check: ## Check health of all services
 	@echo "$(BLUE)Checking service health...$(NC)"
 	@echo "$(YELLOW)API Gateway:$(NC)"
 	@curl -s http://localhost:8081/actuator/health | jq . || echo "$(RED)API Gateway not responding$(NC)"
-	@echo "$(YELLOW)User Management:$(NC)"
+	@echo "$(YELLOW)User Management (optional - microservices profile):$(NC)"
 	@curl -s http://localhost:8082/actuator/health | jq . || echo "$(RED)User Management not responding$(NC)"
-	@echo "$(YELLOW)Sourcing Management:$(NC)"
+	@echo "$(YELLOW)Sourcing Management (optional - microservices profile):$(NC)"
 	@curl -s http://localhost:8083/actuator/health | jq . || echo "$(RED)Sourcing Management not responding$(NC)"
 
 open-grafana: ## Open Grafana dashboard
@@ -197,6 +225,16 @@ clean-all: clean clean-docker ## Clean everything
 
 ##@ Development Workflows
 
+dev-local-up: ## Start minimal local infra (postgres only)
+	@echo "$(BLUE)Starting minimal local infra (postgres-main)...$(NC)"
+	@docker-compose -f docker-compose.local.yml up -d
+	@echo "$(GREEN)Local infra up!$(NC)"
+
+dev-local-down: ## Stop minimal local infra
+	@echo "$(BLUE)Stopping minimal local infra...$(NC)"
+	@docker-compose -f docker-compose.local.yml down
+	@echo "$(GREEN)Local infra stopped!$(NC)"
+
 dev-start: setup-dev docker-up-infra ## Start development environment
 	@echo "$(GREEN)Development environment started!$(NC)"
 	@echo "$(YELLOW)Infrastructure services are running$(NC)"
@@ -214,13 +252,92 @@ full-build: clean install test package ## Full build pipeline
 quick-start: docker-up health-check ## Quick start for demo
 	@echo "$(GREEN)Quick start completed!$(NC)"
 	@echo "$(YELLOW)Services available at:$(NC)"
+	@echo "  - Web UI: http://localhost"
 	@echo "  - API Gateway: http://localhost:8081"
-	@echo "  - Grafana: http://localhost:3000 (admin/admin123)"
-	@echo "  - Kibana: http://localhost:5601"
-	@echo "  - Kafka UI: http://localhost:8080"
-	@echo "  - MinIO Console: http://localhost:9001 (minioadmin/minioadmin123)"
+	@echo ""
+	@echo "$(YELLOW)Optional (profiles):$(NC)"
+	@echo "  - Platform: make docker-up-infra (Grafana/Kafka/MinIO/etc.)"
+	@echo "  - Search: make docker-up-search (OpenSearch)"
+	@echo "  - Edge: make docker-up-kong (Kong)"
 
 ##@ Module-specific Operations
+
+api-gateway-local: ## Run API Gateway locally (profile=local)
+	@mvn -pl application/api-gateway -am install -DskipTests
+	@mvn -pl application/api-gateway spring-boot:run -Dspring-boot.run.profiles=local
+
+web-app-local: ## Run Web App locally (Vite dev server)
+	@cd application/web-app && npm install && npm run dev
+
+smoke-mvp: ## Run consolidated MVP smoke flow (API critical path + UI route checks)
+	@echo "$(BLUE)Running consolidated MVP smoke flow (API + UI)...$(NC)"
+	@cd application/web-app && npm run smoke:mvp
+	@echo "$(GREEN)Consolidated MVP smoke flow completed!$(NC)"
+
+smoke-mvp-full-report-assert: ## Assert persisted consolidated MVP report SLA and required checks
+	@echo "$(BLUE)Asserting consolidated MVP report...$(NC)"
+	@cd application/web-app && npm run smoke:mvp:assert-report
+	@echo "$(GREEN)Consolidated MVP report assertion completed!$(NC)"
+
+smoke-mvp-full-report-check: ## Run consolidated MVP smoke, persist report, and assert SLA/required checks
+	@echo "$(BLUE)Running consolidated MVP smoke + report assertion...$(NC)"
+	@cd application/web-app && \
+		SMOKE_MVP_REPORT_PATH=$(SMOKE_MVP_REPORT_PATH) \
+		SMOKE_MVP_REPORT_INPUT=$(SMOKE_MVP_REPORT_PATH) \
+		SMOKE_MVP_MAX_TOTAL_MS=$(SMOKE_MVP_MAX_TOTAL_MS) \
+		SMOKE_MVP_MAX_STEP_MS=$(SMOKE_MVP_MAX_STEP_MS) \
+		npm run smoke:mvp:report-check
+	@echo "$(GREEN)Consolidated MVP smoke + report assertion completed!$(NC)"
+
+smoke-mvp-report-json: ## Run API smoke flow and print machine-readable JSON summary
+	@echo "$(BLUE)Running MVP smoke flow with JSON report...$(NC)"
+	@cd application/web-app && SMOKE_REPORT_JSON=1 npm run smoke:api
+	@echo "$(GREEN)MVP smoke flow with JSON report completed!$(NC)"
+
+smoke-mvp-report-file: ## Run API smoke flow and persist JSON report to application/web-app/build/smoke-report.json
+	@echo "$(BLUE)Running MVP smoke flow with persisted JSON report...$(NC)"
+	@cd application/web-app && SMOKE_REPORT_PATH=$(SMOKE_REPORT_PATH) npm run smoke:api:report-file
+	@echo "$(GREEN)MVP smoke flow with persisted report completed!$(NC)"
+
+smoke-mvp-report-assert: ## Assert persisted smoke report SLA and final statuses
+	@echo "$(BLUE)Asserting MVP persisted smoke report...$(NC)"
+	@cd application/web-app && npm run smoke:api:assert-report
+	@echo "$(GREEN)MVP persisted smoke report assertion completed!$(NC)"
+
+smoke-mvp-report-check: ## Run smoke flow, persist report, and assert SLA/final statuses
+	@echo "$(BLUE)Running MVP smoke flow + report assertion...$(NC)"
+	@cd application/web-app && \
+		SMOKE_REPORT_PATH=$(SMOKE_REPORT_PATH) \
+		SMOKE_REPORT_INPUT=$(SMOKE_REPORT_PATH) \
+		SMOKE_MAX_TOTAL_MS=$(SMOKE_MAX_TOTAL_MS) \
+		SMOKE_MAX_STEP_MS=$(SMOKE_MAX_STEP_MS) \
+		SMOKE_AUTH=$(SMOKE_AUTH) \
+		npm run smoke:api:report-check
+	@echo "$(GREEN)MVP smoke flow + report assertion completed!$(NC)"
+
+verify-mvp-daily: ## Daily MVP guardrail (backend tests + consolidated MVP smoke suite)
+	@echo "$(BLUE)Running daily MVP verification (api-gateway tests + consolidated smoke suite)...$(NC)"
+	@mvn -pl application/api-gateway -am test
+	@cd application/web-app && \
+		SMOKE_MVP_REPORT_PATH=./build/smoke-mvp-report.json \
+		SMOKE_MVP_REPORT_INPUT=./build/smoke-mvp-report.json \
+		npm run smoke:mvp:report-check
+	@echo "$(GREEN)Daily MVP verification completed!$(NC)"
+
+smoke-mvp-auth: ## Run end-to-end API smoke flow including register/login for buyer and supplier
+	@echo "$(BLUE)Running MVP smoke flow with auth bootstrap...$(NC)"
+	@cd application/web-app && SMOKE_AUTH=1 npm run smoke:api
+	@echo "$(GREEN)MVP smoke flow with auth completed!$(NC)"
+
+smoke-mvp-auth-invalid: ## Run auth smoke flow and verify invalid token gets 401/403 on protected endpoint
+	@echo "$(BLUE)Running MVP smoke flow with invalid-token assertion...$(NC)"
+	@cd application/web-app && SMOKE_AUTH=1 SMOKE_AUTH_INVALID=1 npm run smoke:api
+	@echo "$(GREEN)MVP invalid-token auth smoke completed!$(NC)"
+
+smoke-session: ## Validate UI auth-session invalidation flow wiring (401/403 -> login notice)
+	@echo "$(BLUE)Running session invalidation smoke checks...$(NC)"
+	@cd application/web-app && npm run smoke:session
+	@echo "$(GREEN)Session invalidation smoke checks completed!$(NC)"
 
 user-service: ## Start only user management service
 	@echo "$(BLUE)Starting User Management service...$(NC)"
@@ -254,6 +371,8 @@ create-migration: ## Create new database migration (usage: make create-migration
 show-urls: ## Show all service URLs
 	@echo "$(BLUE)Service URLs:$(NC)"
 	@echo "$(YELLOW)Application Services:$(NC)"
+	@echo "  - Web UI (nginx): http://localhost"
+	@echo "  - Web UI (direct): http://localhost:5173"
 	@echo "  - API Gateway: http://localhost:8081"
 	@echo "  - User Management: http://localhost:8082"
 	@echo "  - Sourcing Management: http://localhost:8083"
@@ -272,5 +391,3 @@ show-urls: ## Show all service URLs
 	@echo "  - Kibana: http://localhost:5601"
 	@echo "  - Kafka UI: http://localhost:8080"
 	@echo "  - MinIO Console: http://localhost:9001 (minioadmin/minioadmin123)"
-	@echo "  - MailHog: http://localhost:8025"
-

@@ -1,0 +1,88 @@
+scalar JSON
+scalar Long
+
+"A typed attribute (key/type/unit/value)."
+type SpecAttribute {
+  key: String!
+  type: String!
+  unit: String
+  value: JSON
+}
+
+input SpecAttributeInput {
+  key: String!
+  type: String!
+  unit: String
+  value: JSON
+}
+
+type SourcingEvent {
+  id: ID!
+  status: String!
+  title: String!
+  description: String
+  eventType: String!
+  tenantId: String!
+  buyerOrganizationId: String!
+  awardedSupplierId: String
+}
+
+type SupplierResponse {
+  id: ID!
+  eventId: ID!
+  supplierId: String!
+  status: String!
+  offerCents: Long!
+  currency: String!
+  leadTimeDays: Int
+  warrantyMonths: Int
+  condition: String
+  shippingMode: String
+  attributes: [SpecAttribute!]!
+  message: String
+}
+
+input CreateSourcingEventInput {
+  tenantId: String!
+  buyerOrganizationId: String!
+  buyerContactName: String!
+  buyerContactPhone: String!
+  buyerContactEmail: String
+  title: String!
+  description: String
+  type: String
+  mccCategoryCode: Int
+  productName: String!
+  productDescription: String
+  category: String
+  unitOfMeasure: String!
+  quantityRequired: Long!
+  attributes: [SpecAttributeInput!]
+  validForHours: Int!
+  estimatedBudgetCents: Long
+}
+
+input SubmitResponseInput {
+  eventId: ID!
+  supplierId: String!
+  offerCents: Long!
+  leadTimeDays: Int
+  warrantyMonths: Int
+  condition: String
+  shippingMode: String
+  attributes: [SpecAttributeInput!]
+  message: String
+}
+
+type Mutation {
+  createSourcingEvent(input: CreateSourcingEventInput!): ID!
+  submitResponse(input: SubmitResponseInput!): ID!
+  acceptResponse(eventId: ID!, responseId: ID!): Boolean!
+}
+
+type Query {
+  sourcingEvent(id: ID!): SourcingEvent!
+  sourcingEvents(tenantId: String, status: String, mccCategoryCode: Int, page: Int = 0, size: Int = 20): [SourcingEvent!]!
+  opportunitiesForSupplier(supplierId: String!, tenantId: String, mccCategoryCode: Int, q: String, visibility: String, page: Int = 0, size: Int = 20): [SourcingEvent!]!
+  sourcingEventResponses(eventId: ID!): [SupplierResponse!]!
+}

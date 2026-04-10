@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:gateway_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driverClassName: org.h2.Driver
+    username: sa
+    password: sa
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+  main:
+    allow-bean-definition-overriding: true
+  flyway:
+    enabled: false
+server:
+  port: 0

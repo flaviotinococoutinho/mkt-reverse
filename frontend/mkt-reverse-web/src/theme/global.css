@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:opsz@8..60&family=Spline+Sans+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /*
+    Visual identity: "O Leilão" (industrial/editorial).
+    - dark ink base, warm paper surfaces, and a sharp citrus accent.
+    - avoids the usual "SaaS gradient" look.
+  */
+  --bg: #0a0e14;
+  --panel: rgba(255, 247, 237, 0.06);
+  --panel-2: rgba(255, 247, 237, 0.1);
+  --ink: #e9e6df;
+  --muted: rgba(233, 230, 223, 0.72);
+  --dim: rgba(233, 230, 223, 0.56);
+  --stroke: rgba(233, 230, 223, 0.16);
+  --stroke-2: rgba(233, 230, 223, 0.22);
+
+  --accent: #ffb000; /* citrus */
+  --accent-2: #62ffb8; /* mint glitch */
+  --danger: #ff4d6d;
+
+  --radius: 18px;
+  --radius-sm: 12px;
+
+  --font-body: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, Segoe UI,
+    Helvetica, Arial;
+  --font-display: 'Instrument Serif', ui-serif, Georgia, serif;
+  --font-mono: 'Spline Sans Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  --shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  background: radial-gradient(1200px 800px at 18% 12%, rgba(255, 176, 0, 0.14), transparent 50%),
+    radial-gradient(900px 600px at 72% 22%, rgba(98, 255, 184, 0.10), transparent 45%),
+    radial-gradient(900px 600px at 60% 90%, rgba(255, 77, 109, 0.10), transparent 55%),
+    linear-gradient(180deg, #070a10 0%, #0a0e14 40%, #070a10 100%);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+body {
+  margin: 0;
+  overflow-y: auto;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(255, 176, 0, 0.35);
+  color: var(--ink);
+}
+
+/* Subtle grain overlay */
+body::before {
+  content: '';
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  opacity: 0.10;
+  mix-blend-mode: overlay;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 247, 237, 0.04) 0px,
+      rgba(255, 247, 237, 0.04) 1px,
+      transparent 1px,
+      transparent 6px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 247, 237, 0.03) 0px,
+      rgba(255, 247, 237, 0.03) 1px,
+      transparent 1px,
+      transparent 7px
+    );
+}
+
+/* Accessible focus */
+:focus-visible {
+  outline: 2px solid rgba(255, 176, 0, 0.9);
+  outline-offset: 3px;
+}
+

@@ -325,7 +325,7 @@ public class Document implements Serializable {
     }
 
     /**
-     * Masks CNPJ: 12345678000195 -> 12.345.***/**01-**
+     * Masks CNPJ: 12345678000195 -> 12.345.*** / **01-**
      */
     private static String maskCnpj(String cnpj) {
         return cnpj.substring(0, 2) + "." + cnpj.substring(2, 5) + ".***/**" + cnpj.substring(10, 12) + "-**";

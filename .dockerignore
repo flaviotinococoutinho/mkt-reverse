@@ -1,0 +1,29 @@
+# Reduce Docker build context size and keep builds deterministic.
+.git
+.github
+.mvn/wrapper/maven-wrapper.jar
+
+# OS / IDE noise
+.DS_Store
+**/.DS_Store
+.idea
+.vscode
+
+# Local env
+.env
+
+# Build outputs
+**/target
+**/dist
+**/.vite
+
+# Node installs
+**/node_modules
+
+# Logs
+logs
+**/logs
+
+# Large local artifacts not needed in images
+*.zip
+*.pdf

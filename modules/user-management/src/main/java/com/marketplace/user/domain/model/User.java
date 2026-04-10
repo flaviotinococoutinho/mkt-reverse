@@ -157,6 +157,7 @@ public class User extends AggregateRoot<UserId> {
         user.password = password;
         user.personalInfo = personalInfo;
         user.document = document;
+        user.phoneNumber = PhoneNumber.empty();
         user.userType = userType;
         user.status = UserStatus.PENDING_VERIFICATION;
         user.emailVerification = EmailVerification.createPending();

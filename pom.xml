@@ -52,7 +52,7 @@
         <!-- Testing -->
         <junit.version>5.10.1</junit.version>
         <mockito.version>5.8.0</mockito.version>
-        <wiremock.version>3.3.1</wiremock.version>
+        <wiremock.version>2.35.2</wiremock.version>
         
         <!-- Documentation -->
         <springdoc.version>2.3.0</springdoc.version>
@@ -62,12 +62,16 @@
         
         <!-- ML/AI -->
         <deeplearning4j.version>1.0.0-M2.1</deeplearning4j.version>
+
+        <!-- Code generation / annotation processors -->
+        <lombok.version>1.18.42</lombok.version>
+        <mapstruct.version>1.5.5.Final</mapstruct.version>
         
         <!-- Plugins -->
-        <maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
+        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.2.3</maven-surefire-plugin.version>
         <maven-failsafe-plugin.version>3.2.3</maven-failsafe-plugin.version>
-        <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
+        <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
         <sonar-maven-plugin.version>3.10.0.2594</sonar-maven-plugin.version>
     </properties>
 
@@ -85,6 +89,8 @@
         <module>modules/contract-management</module>
         <module>modules/notification-service</module>
         <module>modules/analytics-service</module>
+        <module>modules/catalog-management</module>
+        <!-- <module>modules/opportunity-service</module> -->
         
         <!-- Integration Modules -->
         <module>modules/payment-integration</module>
@@ -150,6 +156,25 @@
                 <version>${jackson.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- MapStruct -->
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct-processor</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+
+            <!-- Lombok (explicit to avoid version drift) -->
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
             </dependency>
             
             <!-- Database -->
@@ -248,7 +273,16 @@
                     <configuration>
                         <source>21</source>
                         <target>21</target>
+                        <release>21</release>
                         <parameters>true</parameters>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                        <fork>true</fork>
                     </configuration>
                 </plugin>
                 

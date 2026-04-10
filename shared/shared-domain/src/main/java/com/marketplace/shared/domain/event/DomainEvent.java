@@ -11,51 +11,69 @@ import java.util.UUID;
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, property = "@type")
 public interface DomainEvent {
-    
+
     /**
-     * Unique identifier for this event instance.
+     * Gets the unique identifier for this event instance.
      */
-    UUID getEventId();
-    
+    default UUID getEventId() {
+        EventMetadata metadata = getMetadata();
+        return metadata != null && metadata.getEventId() != null ? metadata.getEventId() : UUID.randomUUID();
+    }
+
     /**
-     * The ID of the aggregate that raised this event.
+     * Gets the event type identifier.
+     */
+    String getEventType();
+
+    /**
+     * Gets the version of the event definition.
+     */
+    String getEventVersion();
+
+    /**
+     * Gets the timestamp when the event occurred.
+     */
+    Instant getOccurredAt();
+
+    /**
+     * Gets the identifier of the aggregate that raised this event.
      */
     String getAggregateId();
-    
+
     /**
-     * The type of the aggregate that raised this event.
+     * Gets the aggregate type associated with this event.
      */
-    String getAggregateType();
-    
+    default String getAggregateType() {
+        EventMetadata metadata = getMetadata();
+        return metadata != null ? metadata.getAggregateType() : null;
+    }
+
     /**
-     * When this event occurred.
+     * Gets the aggregate version at the time of the event.
      */
-    Instant getOccurredOn();
-    
+    default Long getAggregateVersion() {
+        EventMetadata metadata = getMetadata();
+        return metadata != null ? metadata.getAggregateVersion() : null;
+    }
+
     /**
-     * Version of the aggregate when this event was raised.
-     */
-    Long getAggregateVersion();
-    
-    /**
-     * Optional correlation ID for tracing related events.
+     * Gets the correlation identifier for tracing.
      */
     default String getCorrelationId() {
-        return null;
+        EventMetadata metadata = getMetadata();
+        return metadata != null ? metadata.getCorrelationId() : null;
     }
-    
+
     /**
-     * Optional causation ID for event sourcing.
+     * Gets the causation identifier for event sourcing.
      */
     default String getCausationId() {
-        return null;
+        EventMetadata metadata = getMetadata();
+        return metadata != null ? metadata.getCausationId() : null;
     }
-    
-    /**
-     * Event metadata for additional context.
-     */
-    default EventMetadata getMetadata() {
-        return EventMetadata.empty();
-    }
-}
 
+    /**
+     * Gets event metadata with additional context information.
+     */
+    EventMetadata getMetadata();
+}

@@ -47,6 +47,14 @@ public class ProductSpecification implements Serializable {
     @Column(name = "product_subcategory", length = 100)
     private String subcategory;
 
+    // MCC-like classification for the opportunity
+    @Column(name = "mcc_category_code")
+    private Integer mccCategoryCode;
+
+    // Generic, typed attributes serialized as JSON
+    @Column(name = "attributes", columnDefinition = "TEXT")
+    private String attributes; // JSON array of SpecAttribute
+
     @Column(name = "unit_of_measure", length = 20)
     private String unitOfMeasure;
 
@@ -77,6 +85,8 @@ public class ProductSpecification implements Serializable {
             description != null ? description.trim() : null,
             category != null ? category.trim() : null,
             null, // subcategory
+            null, // mccCategoryCode
+            null, // attributes
             unitOfMeasure.trim(),
             quantityRequired,
             null, // technicalSpecifications
@@ -100,12 +110,65 @@ public class ProductSpecification implements Serializable {
             description != null ? description.trim() : null,
             category != null ? category.trim() : null,
             subcategory != null ? subcategory.trim() : null,
+            null, // mccCategoryCode
+            null, // attributes
             unitOfMeasure.trim(),
             quantityRequired,
             serializeToJson(technicalSpecs),
             serializeToJson(qualityStandards),
             serializeToJson(complianceReqs),
             serializeToJson(attachments)
+        );
+    }
+
+    public Integer getMccCategoryCode() {
+        return mccCategoryCode;
+    }
+
+    public ProductSpecification withMccCategoryCode(Integer code) {
+        if (code != null) {
+            // validate against known list (MVP)
+            MccCategory.requireFromCode(code);
+        }
+        return new ProductSpecification(
+            this.productName, this.description, this.category, this.subcategory,
+            code, this.attributes,
+            this.unitOfMeasure, this.quantityRequired,
+            this.technicalSpecifications, this.qualityStandards,
+            this.complianceRequirements, this.attachments
+        );
+    }
+
+    public java.util.List<SpecAttribute> getAttributesList() {
+        if (attributes == null || attributes.trim().isEmpty()) {
+            return new java.util.ArrayList<>();
+        }
+        try {
+            return objectMapper.readValue(attributes, new com.fasterxml.jackson.core.type.TypeReference<java.util.List<SpecAttribute>>() {});
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            log.warn("Failed to deserialize attributes", e);
+            return new java.util.ArrayList<>();
+        }
+    }
+
+    public ProductSpecification withAttributes(java.util.List<SpecAttribute> attrs) {
+        // HARD normalization: category code is required to validate attributes
+        if (this.mccCategoryCode == null) {
+            if (attrs != null && !attrs.isEmpty()) {
+                throw new IllegalArgumentException("mccCategoryCode is required when attributes are provided");
+            }
+        } else {
+            MccCategory category = MccCategory.requireFromCode(this.mccCategoryCode);
+            CategoryAttributeSchema.validate(category, attrs);
+        }
+
+        return new ProductSpecification(
+            this.productName, this.description, this.category, this.subcategory,
+            this.mccCategoryCode,
+            attrs != null ? serializeToJson(attrs) : null,
+            this.unitOfMeasure, this.quantityRequired,
+            this.technicalSpecifications, this.qualityStandards,
+            this.complianceRequirements, this.attachments
         );
     }
 
@@ -186,8 +249,9 @@ public class ProductSpecification implements Serializable {
         
         return new ProductSpecification(
             this.productName, this.description, this.category, this.subcategory,
+            this.mccCategoryCode, this.attributes,
             this.unitOfMeasure, this.quantityRequired,
-            serializeToJson(currentSpecs), this.qualityStandards, 
+            serializeToJson(currentSpecs), this.qualityStandards,
             this.complianceRequirements, this.attachments
         );
     }
@@ -207,6 +271,7 @@ public class ProductSpecification implements Serializable {
         
         return new ProductSpecification(
             this.productName, this.description, this.category, this.subcategory,
+            this.mccCategoryCode, this.attributes,
             this.unitOfMeasure, this.quantityRequired, this.technicalSpecifications,
             serializeToJson(currentStandards), this.complianceRequirements, this.attachments
         );
@@ -227,6 +292,7 @@ public class ProductSpecification implements Serializable {
         
         return new ProductSpecification(
             this.productName, this.description, this.category, this.subcategory,
+            this.mccCategoryCode, this.attributes,
             this.unitOfMeasure, this.quantityRequired, this.technicalSpecifications,
             this.qualityStandards, serializeToJson(currentRequirements), this.attachments
         );
@@ -247,6 +313,7 @@ public class ProductSpecification implements Serializable {
         
         return new ProductSpecification(
             this.productName, this.description, this.category, this.subcategory,
+            this.mccCategoryCode, this.attributes,
             this.unitOfMeasure, this.quantityRequired, this.technicalSpecifications,
             this.qualityStandards, this.complianceRequirements, serializeToJson(currentAttachments)
         );
@@ -262,6 +329,7 @@ public class ProductSpecification implements Serializable {
         
         return new ProductSpecification(
             this.productName, this.description, this.category, this.subcategory,
+            this.mccCategoryCode, this.attributes,
             this.unitOfMeasure, newQuantity, this.technicalSpecifications,
             this.qualityStandards, this.complianceRequirements, this.attachments
         );
@@ -272,9 +340,11 @@ public class ProductSpecification implements Serializable {
      */
     public ProductSpecification withDescription(String newDescription) {
         return new ProductSpecification(
-            this.productName, newDescription != null ? newDescription.trim() : null, 
-            this.category, this.subcategory, this.unitOfMeasure, this.quantityRequired,
-            this.technicalSpecifications, this.qualityStandards, 
+            this.productName, newDescription != null ? newDescription.trim() : null,
+            this.category, this.subcategory,
+            this.mccCategoryCode, this.attributes,
+            this.unitOfMeasure, this.quantityRequired,
+            this.technicalSpecifications, this.qualityStandards,
             this.complianceRequirements, this.attachments
         );
     }

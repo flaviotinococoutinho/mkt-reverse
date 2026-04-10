@@ -54,6 +54,21 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <!-- Avoid duplicate org.json.JSONObject on test classpath -->
+                <exclusion>
+                    <groupId>com.vaadin.external.google</groupId>
+                    <artifactId>android-json</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- jsonassert needs org.json; we standardize on org.json:json (not android-json) -->
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20231013</version>
+            <scope>test</scope>
         </dependency>
         
         <dependency>
@@ -69,4 +84,3 @@
         </dependency>
     </dependencies>
 </project>
-
