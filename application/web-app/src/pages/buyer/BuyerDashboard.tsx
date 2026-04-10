@@ -6,9 +6,11 @@ import { AppHeader } from '../../components/layout/AppHeader';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { sourcingService } from '../../services/sourcingService';
 import type { SourcingEventView } from '../../services/sourcingService';
-import { Plus, FileText } from 'lucide-react';
+import { Plus, FileText, Search, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import { getFriendlyHttpErrorMessage } from '../../lib/problemDetails';
+import { Loading, ListSkeleton, NoData, NoResults } from '../../components/ui/feedback';
+import { useToast } from '../../components/ui/feedback';
 import {
   parseBuyerDashboardFilters,
   toBuyerDashboardQueryParams,
@@ -19,11 +21,13 @@ export default function BuyerDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const { error: showError } = useToast();
+
   const [events, setEvents] = React.useState<SourcingEventView[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [loadError, setLoadError] = React.useState<string | null>(null);
-  const initialFilters = parseBuyerDashboardFilters(searchParams);
+  const [error, setError] = React.useState<string | null>(null);
 
+  const initialFilters = parseBuyerDashboardFilters(searchParams);
   const [searchQuery, setSearchQuery] = React.useState(initialFilters.searchQuery);
   const [appliedSearchQuery, setAppliedSearchQuery] = React.useState(initialFilters.searchQuery);
   const [statusFilter, setStatusFilter] = React.useState(initialFilters.status);
@@ -32,7 +36,7 @@ export default function BuyerDashboard() {
   const [totalEvents, setTotalEvents] = React.useState(0);
 
   const loadEvents = React.useCallback(async () => {
-    setLoadError(null);
+    setError(null);
 
     try {
       const result = await sourcingService.getSourcingEvents({
@@ -41,6 +45,7 @@ export default function BuyerDashboard() {
         page: currentPage,
         size: pageSize,
       });
+
       const normalizedQuery = appliedSearchQuery.trim().toLowerCase();
       const filteredItems = normalizedQuery
         ? result.items.filter((event) => {
@@ -52,23 +57,23 @@ export default function BuyerDashboard() {
 
       setEvents(filteredItems);
       setTotalEvents(result.total);
-    } catch (error) {
-      console.error('Failed to load events:', error);
+    } catch (err) {
+      console.error('Failed to load events:', err);
       const fallbackMessage = 'Não foi possível carregar suas solicitações. Tente novamente.';
 
-      if (axios.isAxiosError(error)) {
-        setLoadError(
-          getFriendlyHttpErrorMessage(error.response?.status, error.response?.data)
-            ?? error.message
-            ?? fallbackMessage,
-        );
-      } else {
-        setLoadError(fallbackMessage);
+      let errorMessage = fallbackMessage;
+      if (axios.isAxiosError(err)) {
+        errorMessage = getFriendlyHttpErrorMessage(err.response?.status, err.response?.data) 
+          ?? err.message 
+          ?? fallbackMessage;
       }
+
+      setError(errorMessage);
+      showError('Erro ao carregar', errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [appliedSearchQuery, currentPage, pageSize, statusFilter, user?.tenantId]);
+  }, [appliedSearchQuery, currentPage, pageSize, statusFilter, user?.tenantId, showError]);
 
   React.useEffect(() => {
     void loadEvents();
@@ -90,8 +95,8 @@ export default function BuyerDashboard() {
 
   const hasActiveFilters = Boolean(appliedSearchQuery) || statusFilter !== 'ALL';
 
-  const handleApplyFilters = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleApplyFilters = (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setCurrentPage(0);
     setAppliedSearchQuery(searchQuery.trim());
@@ -113,7 +118,6 @@ export default function BuyerDashboard() {
     <div className="min-h-screen bg-ink text-zinc-200 font-sans">
       <AppHeader />
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         {/* Page Title and Actions */}
         <div className="flex justify-between items-center mb-8">
@@ -127,22 +131,26 @@ export default function BuyerDashboard() {
           </Button>
         </div>
 
+        {/* Filters Panel */}
         <div className="auction-panel p-4 mb-6">
           <form onSubmit={handleApplyFilters} className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Buscar por título ou descrição"
-              className="w-full rounded-md border border-stroke bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-citrus focus:outline-none"
-            />
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por título ou descrição"
+                className="w-full pl-10 rounded-md border border-stroke bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-citrus focus:outline-none"
+              />
+            </div>
 
             <select
               value={statusFilter}
-              onChange={(event) => {
+              onChange={(e) => {
                 setLoading(true);
                 setCurrentPage(0);
-                setStatusFilter(event.target.value as BuyerStatusFilter);
+                setStatusFilter(e.target.value as BuyerStatusFilter);
               }}
               className="w-full rounded-md border border-stroke bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100 focus:border-citrus focus:outline-none"
             >
@@ -183,15 +191,15 @@ export default function BuyerDashboard() {
           )}
         </div>
 
-        {/* Events List */}
+        {/* Content */}
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-zinc-400">Carregando...</div>
+          <div className="auction-panel p-8">
+            <ListSkeleton count={5} />
           </div>
-        ) : loadError ? (
+        ) : error ? (
           <div className="auction-panel text-center py-12 px-6">
-            <p className="text-danger text-sm font-mono mb-2">FALHA_AO_CARREGAR</p>
-            <p className="text-zinc-300 mb-6">{loadError}</p>
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+            <p className="text-zinc-300 mb-6">{error}</p>
             <Button
               variant="secondary"
               onClick={() => {
@@ -203,23 +211,22 @@ export default function BuyerDashboard() {
             </Button>
           </div>
         ) : events.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText className="h-16 w-16 mx-auto mb-4 text-zinc-600" />
-            <p className="text-zinc-400 mb-4">
-              {hasActiveFilters
-                ? 'Nenhuma solicitação encontrada com os filtros atuais.'
-                : 'Você ainda não tem solicitações'}
-            </p>
-            {hasActiveFilters ? (
-              <Button variant="secondary" onClick={clearFilters}>
-                Limpar filtros
-              </Button>
-            ) : (
-              <Button onClick={() => navigate('/create-request')}>
-                Criar Primeira Solicitação
-              </Button>
-            )}
-          </div>
+          hasActiveFilters ? (
+            <NoResults 
+              action={{ 
+                label: 'Limpar filtros', 
+                onClick: clearFilters 
+              }} 
+            />
+          ) : (
+            <NoData 
+              message="Você ainda não tem solicitações" 
+              action={{ 
+                label: 'Criar Primeira Solicitação', 
+                onClick: () => navigate('/create-request') 
+              }} 
+            />
+          )
         ) : (
           <div className="space-y-4">
             {events.map((event) => (
@@ -260,37 +267,40 @@ export default function BuyerDashboard() {
               </div>
             ))}
 
-            <div className="auction-panel flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-              <p className="text-sm text-zinc-400">
-                Mostrando página <span className="text-zinc-200">{currentPage + 1}</span> de{' '}
-                <span className="text-zinc-200">{totalPages}</span> • Total no backend:{' '}
-                <span className="text-zinc-200">{totalEvents}</span>
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isFirstPage}
-                  onClick={() => {
-                    setLoading(true);
-                    setCurrentPage((page) => Math.max(0, page - 1));
-                  }}
-                >
-                  Anterior
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isLastPage}
-                  onClick={() => {
-                    setLoading(true);
-                    setCurrentPage((page) => page + 1);
-                  }}
-                >
-                  Próxima
-                </Button>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="auction-panel flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                <p className="text-sm text-zinc-400">
+                  Mostrando página <span className="text-zinc-200">{currentPage + 1}</span> de{' '}
+                  <span className="text-zinc-200">{totalPages}</span> • Total:{' '}
+                  <span className="text-zinc-200">{totalEvents}</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isFirstPage}
+                    onClick={() => {
+                      setLoading(true);
+                      setCurrentPage((page) => Math.max(0, page - 1));
+                    }}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isLastPage}
+                    onClick={() => {
+                      setLoading(true);
+                      setCurrentPage((page) => page + 1);
+                    }}
+                  >
+                    Próxima
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </main>

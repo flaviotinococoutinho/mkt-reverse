@@ -11,7 +11,10 @@ import {
   Clock,
   TrendingUp,
   AlertCircle,
+  Search,
 } from 'lucide-react';
+import { Loading, ListSkeleton, NoData } from '../../components/ui/feedback';
+import { useToast } from '../../components/ui/feedback';
 
 type IconComponent = React.ComponentType<{ className?: string }>;
 
@@ -24,8 +27,11 @@ interface Stats {
 export default function SupplierDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { error: showError } = useToast();
+
   const [opportunities, setOpportunities] = React.useState<SourcingEventView[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
   const [stats, setStats] = React.useState<Stats>({
     totalOpportunities: 0,
     activeProposals: 0,
@@ -33,6 +39,8 @@ export default function SupplierDashboard() {
   });
 
   const loadData = React.useCallback(async () => {
+    setError(null);
+
     try {
       const result = await sourcingService.getOpportunities({
         supplierId: user?.id,
@@ -43,6 +51,7 @@ export default function SupplierDashboard() {
 
       setOpportunities(result.items);
 
+      // Get responses for each opportunity
       const responseLists = await Promise.all(
         result.items.map((event) => sourcingService.getResponses(event.id).catch(() => []))
       );
@@ -64,12 +73,14 @@ export default function SupplierDashboard() {
         activeProposals,
         acceptedProposals,
       });
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+      setError('Não foi possível carregar os dados. Tente novamente.');
+      showError('Erro ao carregar', 'Não foi possível carregar os dados do dashboard.');
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, showError]);
 
   React.useEffect(() => {
     void loadData();
@@ -97,7 +108,6 @@ export default function SupplierDashboard() {
     <div className="min-h-screen bg-ink text-zinc-200 font-sans">
       <AppHeader />
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         {/* Page Title */}
         <div className="mb-8">
@@ -134,17 +144,25 @@ export default function SupplierDashboard() {
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-zinc-400">Carregando...</div>
+            <div className="auction-panel p-8">
+              <ListSkeleton count={3} />
             </div>
-          ) : opportunities.length === 0 ? (
-            <div className="text-center py-12">
-              <AlertCircle className="h-16 w-16 mx-auto mb-4 text-zinc-600" />
-              <p className="text-zinc-400 mb-4">Nenhuma oportunidade encontrada</p>
-              <Button onClick={() => navigate('/supplier/opportunities')}>
-                Buscar Oportunidades
+          ) : error ? (
+            <div className="auction-panel text-center py-12 px-6">
+              <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+              <p className="text-zinc-300 mb-6">{error}</p>
+              <Button variant="secondary" onClick={() => { setLoading(true); void loadData(); }}>
+                Tentar novamente
               </Button>
             </div>
+          ) : opportunities.length === 0 ? (
+            <NoData 
+              message="Nenhuma oportunidade encontrada" 
+              action={{ 
+                label: 'Buscar Oportunidades', 
+                onClick: () => navigate('/supplier/opportunities') 
+              }} 
+            />
           ) : (
             <div className="space-y-4">
               {opportunities.slice(0, 5).map((event) => (
