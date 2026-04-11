@@ -230,6 +230,18 @@ dev-local-up: ## Start minimal local infra (postgres only)
 	@docker-compose -f docker-compose.local.yml up -d
 	@echo "$(GREEN)Local infra up!$(NC)"
 
+dev-up: ## Start full dev environment (postgres + rabbitmq)
+	@echo "$(BLUE)Starting full dev environment...$(NC)"
+	@docker compose -f docker-compose.dev.yml up -d
+	@echo "$(GREEN)Dev environment up!$(NC)"
+
+dev-down: ## Stop full dev environment
+	@echo "$(BLUE)Stopping dev environment...$(NC)"
+	@docker compose -f docker-compose.dev.yml down
+
+dev-logs: ## Show logs from dev environment
+	@docker compose -f docker-compose.dev.yml logs -f
+
 dev-local-down: ## Stop minimal local infra
 	@echo "$(BLUE)Stopping minimal local infra...$(NC)"
 	@docker-compose -f docker-compose.local.yml down
