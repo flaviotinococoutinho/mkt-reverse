@@ -25,6 +25,7 @@ import org.springframework.hateoas.MediaTypes;
 import org.springframework.hateoas.PagedModel;
 import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -52,6 +53,7 @@ public class SourcingMvpController {
 
     @PostMapping("/sourcing-events")
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('ROLE_BUYER') or hasAuthority('ROLE_ADMIN')")
     public EntityModel<CreateSourcingEventResponse> create(@Valid @RequestBody CreateSourcingEventRequest req) {
         ProductSpecification spec = ProductSpecification.of(
             req.productName(),
@@ -287,6 +289,7 @@ public class SourcingMvpController {
 
     @PostMapping("/sourcing-events/{id}/responses")
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('ROLE_SUPPLIER') or hasAuthority('ROLE_ADMIN')")
     public EntityModel<CreateSupplierResponseResponse> submitResponse(
         @PathVariable String id,
         @Valid @RequestBody CreateSupplierResponseRequest req
@@ -318,6 +321,7 @@ public class SourcingMvpController {
     }
 
     @PostMapping("/sourcing-events/{eventId}/responses/{responseId}/accept")
+    @PreAuthorize("@sourcingSecurityService.isEventOwner(#eventId, authentication.principal.id) or hasAuthority('ROLE_ADMIN')")
     public org.springframework.http.ResponseEntity<Void> accept(
         @PathVariable String eventId,
         @PathVariable String responseId,
