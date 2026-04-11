@@ -16,6 +16,7 @@ const CreateRequest = lazy(() => import('./pages/buyer/CreateRequest'));
 const SourcingEventDetail = lazy(() => import('./pages/buyer/SourcingEventDetail'));
 const SupplierDashboard = lazy(() => import('./pages/supplier/SupplierDashboard'));
 const OpportunitiesPage = lazy(() => import('./pages/supplier/OpportunitiesPage'));
+const OpportunitiesSearchPage = lazy(() => import('./pages/supplier/OpportunitiesSearchPage'));
 const OpportunityDetail = lazy(() => import('./pages/supplier/OpportunityDetail'));
 const SubmitProposal = lazy(() => import('./pages/supplier/SubmitProposal'));
 const Support = lazy(() => import('./pages/Support'));
@@ -58,6 +59,7 @@ function AppContent() {
           <Route element={<ProtectedRoute requiredRole="supplier" />}>
             <Route path="/supplier/dashboard" element={<SupplierDashboard />} />
             <Route path="/supplier/opportunities" element={<OpportunitiesPage />} />
+            <Route path="/supplier/search" element={<OpportunitiesSearchPage />} />
             <Route path="/supplier/opportunities/:id" element={<OpportunityDetail />} />
             <Route path="/supplier/submit-proposal/:id" element={<SubmitProposal />} />
           </Route>
