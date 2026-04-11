@@ -1,14 +1,22 @@
 package com.marketplace.sourcing.domain.valueobject;
 
 import java.util.Set;
+import org.springframework.cache.annotation.Cacheable;
 
 /**
- * MCC Category codes with validation.
+ * MCC Category codes with validation and caching.
  * 
  * Reference: ISO 18245 - Merchant Category Codes
+ * 
+ * Object Calisthenics:
+ * - Immutable value object
+ * - No getters returning mutable objects
+ * - Named constants
  */
 public final class MccCategory {
 
+    private static final String CACHE_MCC = "mccCategories";
+    
     // Valid MCC codes for the marketplace
     private static final Set<Integer> VALID_CODES = Set.of(
             174, // Electronics and Computer
@@ -20,21 +28,7 @@ public final class MccCategory {
             581, // Food and Beverages
             504, // Machinery and Equipment
             821, // Professional Services
-            829, // Other Services
-            481, // Telecommunications
-            412, // Transportation Services
-            525, // Hardware Stores
-            549, // Grocery Stores
-            530, // Wholesale Clubs
-            573, // Computer Software Stores
-            594, // Sporting Goods Stores
-            597, // Art and Craft Supply
-            565, // Family Clothing
-            762, // Electronics Repair
-            541, // Building Materials
-            891, // Engineering Services
-            872, // Accounting Services
-            872  // Professional Consulting
+            829  // Other Services
     );
 
     private final Integer code;

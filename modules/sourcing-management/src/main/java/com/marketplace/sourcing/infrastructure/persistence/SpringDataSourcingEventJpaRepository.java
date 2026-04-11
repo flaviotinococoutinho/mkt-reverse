@@ -2,10 +2,12 @@ package com.marketplace.sourcing.infrastructure.persistence;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,6 +19,17 @@ import com.marketplace.sourcing.domain.valueobject.SourcingEventStatus;
 public interface SpringDataSourcingEventJpaRepository extends JpaRepository<SourcingEvent, SourcingEventId> {
 
     List<SourcingEvent> findByStatus(SourcingEventStatus status);
+
+    /**
+     * Find event with responses to avoid N+1 queries.
+     * Uses entity graph for eager loading.
+     */
+    @EntityGraph(attributePaths = {"responses"})
+    @Query("select e from SourcingEvent e where e.id = :id")
+    Optional<SourcingEvent> findByIdWithResponses(@Param("id") SourcingEventId id);
+
+    @Query("select e from SourcingEvent e where e.buyerContext.tenantId = :tenantId and e.buyerContext.organizationId = :orgId and e.status in (com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.PUBLISHED, com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.IN_PROGRESS, com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.NEGOTIATION)")
+    List<SourcingEvent> findActiveByBuyer(@Param("tenantId") String tenantId, @Param("orgId") String orgId);
 
     @Query("select e from SourcingEvent e where e.buyerContext.tenantId = :tenantId and e.buyerContext.organizationId = :orgId and e.status in (com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.PUBLISHED, com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.IN_PROGRESS, com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.NEGOTIATION)")
     List<SourcingEvent> findActiveByBuyer(@Param("tenantId") String tenantId, @Param("orgId") String orgId);
