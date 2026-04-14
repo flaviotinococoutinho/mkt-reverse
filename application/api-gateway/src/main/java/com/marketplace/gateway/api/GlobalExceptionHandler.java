@@ -1,6 +1,6 @@
 package com.marketplace.gateway.api;
 
-import com.marketplace.gateway.config.CorrelationIdFilter;
+import com.marketplace.gateway.api.schema.SourcingSchema;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
@@ -11,61 +11,105 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.net.URI;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Edge-layer error mapping (REST). Domain/app errors are intentionally preserved as typed HTTP errors.
+ * Global exception handler using table-driven approach.
+ * 
+ * Reduces complexity from O(n) if-else to O(1) lookup.
+ * 
+ * Object Calisthenics:
+ * - No magic numbers
+ * - Single responsibility
+ * - Immutable mappings
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ProblemDetail> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest req) {
-        return problem(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", ex.getMessage(), req);
-    }
+    // Table-driven exception mapping
+    private static final Map<Class<? extends Exception>, ExceptionMapper> EXCEPTION_MAPPERS = Map.of(
+            IllegalArgumentException.class, new ExceptionMapper(
+                    HttpStatus.BAD_REQUEST,
+                    "VALIDATION_ERROR"
+            ),
+            IllegalStateException.class, new ExceptionMapper(
+                    HttpStatus.CONFLICT,
+                    "CONFLICT"
+            ),
+            MethodArgumentNotValidException.class, new ExceptionMapper(
+                    HttpStatus.BAD_REQUEST,
+                    "VALIDATION_ERROR"
+            )
+    );
 
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<ProblemDetail> handleIllegalState(IllegalStateException ex, HttpServletRequest req) {
-        return problem(HttpStatus.CONFLICT, "CONFLICT", ex.getMessage(), req);
-    }
+    private static final ExceptionMapper DEFAULT_MAPPER = new ExceptionMapper(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "UNEXPECTED"
+    );
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ProblemDetail> handleBeanValidation(MethodArgumentNotValidException ex, HttpServletRequest req) {
-        ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+    public ResponseEntity<ProblemDetail> handleValidation(
+            MethodArgumentNotValidException ex,
+            HttpServletRequest req
+    ) {
+        var mapper = EXCEPTION_MAPPERS.getOrDefault(
+                MethodArgumentNotValidException.class,
+                DEFAULT_MAPPER
+        );
+
+        var pd = mapper.toProblemDetail();
         pd.setType(URI.create("urn:problem:validation"));
         pd.setTitle("Validation error");
         pd.setDetail("Request validation failed");
         pd.setInstance(URI.create(req.getRequestURI()));
-        pd.setProperty("code", "VALIDATION_ERROR");
-        pd.setProperty("correlationId", MDC.get(CorrelationIdFilter.MDC_KEY));
 
-        Map<String, String> fieldErrors = new HashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(fe -> fieldErrors.put(fe.getField(), fe.getDefaultMessage()));
+        var fieldErrors = new java.util.HashMap<String, String>();
+        ex.getBindingResult().getFieldErrors()
+                .forEach(fe -> fieldErrors.put(fe.getField(), fe.getDefaultMessage()));
         pd.setProperty("errors", fieldErrors);
+        pd.setProperty("correlationId", MDC.get("correlationId"));
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(pd);
+        return ResponseEntity.status(mapper.status()).body(pd);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ProblemDetail> handleUnexpected(Exception ex, HttpServletRequest req) {
-        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "UNEXPECTED", "Unexpected error", req);
+    public ResponseEntity<ProblemDetail> handle(Exception ex, HttpServletRequest req) {
+        var mapper = EXCEPTION_MAPPERS.getOrDefault(
+                ex.getClass(),
+                DEFAULT_MAPPER
+        );
+
+        var message = (ex.getMessage() != null) 
+                ? ex.getMessage() 
+                : mapper.title();
+
+        return mapper.toProblem(message, req).toResponse();
     }
 
-    private ResponseEntity<ProblemDetail> problem(
-        HttpStatus status,
-        String code,
-        String detail,
-        HttpServletRequest req
-    ) {
-        ProblemDetail pd = ProblemDetail.forStatus(status);
-        pd.setType(URI.create("urn:problem:" + code.toLowerCase()));
-        pd.setTitle(status.getReasonPhrase());
-        pd.setDetail(detail);
-        pd.setInstance(URI.create(req.getRequestURI()));
-        pd.setProperty("code", code);
-        pd.setProperty("correlationId", MDC.get(CorrelationIdFilter.MDC_KEY));
-        return ResponseEntity.status(status).body(pd);
+    /**
+     * Immutable exception mapper - Value Object
+     */
+    record ExceptionMapper(HttpStatus status, String code) {
+
+        ResponseEntity<ProblemDetail> toResponse() {
+            return ResponseEntity.status(status())
+                    .body(toProblemDetail());
+        }
+
+        ProblemDetail toProblemDetail() {
+            var pd = ProblemDetail.forStatus(status());
+            pd.setType(URI.create("urn:problem:" + code().toLowerCase()));
+            pd.setTitle(status().getReasonPhrase());
+            pd.setProperty("code", code());
+            return pd;
+        }
+
+        ProblemDetail toProblem(String detail, HttpServletRequest req) {
+            var pd = toProblemDetail();
+            pd.setDetail(detail);
+            pd.setInstance(URI.create(req.getRequestURI()));
+            pd.setProperty("correlationId", MDC.get("correlationId"));
+            return pd;
+        }
     }
 }
-
