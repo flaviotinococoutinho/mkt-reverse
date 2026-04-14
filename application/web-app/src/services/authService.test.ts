@@ -4,9 +4,13 @@ vi.mock('./api', () => ({
   default: {
     post: vi.fn(),
   },
+  setTokens: vi.fn(),
+  clearTokens: vi.fn(),
+  setUser: vi.fn(),
+  getAccessToken: vi.fn(),
 }));
 
-import api from './api';
+import api, { setTokens, clearTokens, setUser } from './api';
 import { authService } from './authService';
 
 function createStorageMock() {
@@ -34,7 +38,8 @@ describe('authService', () => {
   it('converte telefone em email MVP no login e persiste sessão', async () => {
     vi.mocked(api.post).mockResolvedValue({
       data: {
-        token: 'jwt-123',
+        accessToken: 'jwt-123',
+        refreshToken: 'refresh-123',
         user: {
           id: 'u-1',
           name: 'Flavio',
@@ -54,14 +59,15 @@ describe('authService', () => {
       email: '11999999999@queroja.mvp',
       password: 'secret',
     });
-    expect(result.token).toBe('jwt-123');
-    expect(localStorage.getItem('token')).toBe('jwt-123');
+    expect(result.accessToken).toBe('jwt-123');
+    expect(setTokens).toHaveBeenCalledWith('jwt-123', 'refresh-123');
   });
 
   it('envia payload de registro sem email explícito e com userType correto', async () => {
     vi.mocked(api.post).mockResolvedValue({
       data: {
-        token: 'jwt-456',
+        accessToken: 'jwt-456',
+        refreshToken: 'refresh-456',
         user: {
           id: 'u-2',
           name: 'Empresa XPTO',
@@ -96,7 +102,8 @@ describe('authService', () => {
   it('usa fallback de sobrenome MVP quando nome possui uma única palavra', async () => {
     vi.mocked(api.post).mockResolvedValue({
       data: {
-        token: 'jwt-789',
+        accessToken: 'jwt-789',
+        refreshToken: 'refresh-789',
         user: {
           id: 'u-3',
           name: 'Flavio',

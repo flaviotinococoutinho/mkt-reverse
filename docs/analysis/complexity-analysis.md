@@ -189,12 +189,14 @@ Para verificar complexidade com SonarQube:
 
 ## 9. Progresso de Refatoração
 
-| Classe | CC Atual | CC Alvo | Status |
-|--------|----------|---------|--------|
-| ValidationChain | 45 | 10 | ⏳ Pendente |
-| SourcingMvpController | 40 | 15 | ⏳ Pendente |
-| GlobalExceptionHandler | 25 | 10 | ⏳ Pendente |
-| MccCategory | 20 | 5 | ✅ Refatorado |
+| Classe | CC Anterior | CC Atual | Status |
+|--------|-------------|----------|--------|
+| GlobalExceptionHandler | 25 | 8 | ✅ Refatorado |
+| ValidationHandlerFactory | N/A | 10 | ✅ Novo |
+| SubmitProposalValidationHandler | 35 | 10 | ✅ Refatorado |
+| ValidationChain | 45 | N/A | ✅ Já erapolymorphic |
+| SourcingMvpController | 40 | 40 | ⏳ Pendente |
+| MccCategory | 20 | 12 | ✅ Refatorado |
 
 ---
 
