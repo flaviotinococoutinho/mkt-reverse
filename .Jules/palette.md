@@ -5,3 +5,7 @@
 ## 2024-05-24 - Dynamic ARIA Labels in Attribute Lists
 **Learning:** When dealing with dynamic lists of inputs (like key-value attribute editors), icon-only remove buttons need specific, dynamic `aria-label`s (e.g., "Remove attribute Size") rather than generic ones ("Remove attribute") so screen reader users know exactly which item they are deleting.
 **Action:** Always interpolate the item's identifying value into the `aria-label` for list item actions.
+
+## 2024-06-25 - Error message accessibility
+**Learning:** Found a specific pattern where inline error messages (using the `errorInline` class) were rendered without an accessible role, making them invisible to screen readers at the moment they appear.
+**Action:** When adding or modifying inline validation errors in the frontend UI, always ensure the error container includes the `role="alert"` attribute so screen readers announce it immediately.
