@@ -247,7 +247,7 @@ export function CreateEventPage() {
               {mutation.isPending ? 'Criando…' : 'Criar pedido'}
             </button>
             {mutation.isError && (
-              <div className="errorInline">
+              <div className="errorInline" role="alert">
                 Erro ao criar pedido. Tente novamente.
               </div>
             )}

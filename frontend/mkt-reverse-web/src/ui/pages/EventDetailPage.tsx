@@ -299,7 +299,7 @@ export function EventDetailPage() {
                 {submitM.isPending ? 'Enviando…' : 'Enviar Proposta'}
               </button>
               {submitM.isError && (
-                <div className="errorInline">{String((submitM.error as any)?.message)}</div>
+                <div className="errorInline" role="alert">{String((submitM.error as any)?.message)}</div>
               )}
             </div>
           </form>
