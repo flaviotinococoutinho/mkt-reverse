@@ -56,7 +56,7 @@ export function AttributeEditor({ attributes, onChange, error }: AttributeEditor
       </h3>
 
       {error && (
-        <div className="errorInline" style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fee2e2', borderRadius: '4px' }}>
+        <div role="alert" className="errorInline" style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fee2e2', borderRadius: '4px' }}>
           {error}
         </div>
       )}
