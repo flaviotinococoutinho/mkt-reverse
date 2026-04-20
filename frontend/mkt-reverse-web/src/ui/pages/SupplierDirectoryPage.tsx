@@ -128,6 +128,13 @@ export function SupplierDirectoryPage() {
         </div>
       </section>
 
+      {rows.length === 0 ? (
+        <div className="panel" role="alert" aria-live="polite">
+          <div className="panelBody" style={{ textAlign: 'center', padding: '2rem' }}>
+            <p className="muted">Nenhum fornecedor encontrado para os filtros selecionados.</p>
+          </div>
+        </div>
+      ) : (
       <section className="grid" aria-label="Supplier results">
         {rows.map((s) => (
           <article key={s.id} className="card">
@@ -158,6 +165,7 @@ export function SupplierDirectoryPage() {
           </article>
         ))}
       </section>
+      )}
     </div>
   )
 }
