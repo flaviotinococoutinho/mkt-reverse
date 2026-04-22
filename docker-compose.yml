@@ -1,110 +1,189 @@
-services:
-  kong:
-    image: kong:3.6
-    profiles: ["edge"]
-    container_name: mkt-reverse-kong
-    environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
-      KONG_PROXY_ACCESS_LOG: /dev/stdout
-      KONG_ADMIN_ACCESS_LOG: /dev/stdout
-      KONG_PROXY_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_ERROR_LOG: /dev/stderr
-      KONG_PROXY_LISTEN: 0.0.0.0:8000
-      KONG_ADMIN_LISTEN: 0.0.0.0:8001
-    ports:
-      - "8002:8000" # proxy (8000 is used by another local container)
-      - "8003:8001" # admin api
-    volumes:
-      - ./docker/kong/kong.yml:/kong/declarative/kong.yml:ro
-    # Do not depend_on api-gateway here because the compose file currently
-    # builds application images (and some Dockerfile paths may not exist yet).
-    # Start api-gateway separately, then bring Kong up.
-    networks:
-      - marketplace-network
+# ============================================================
+# mkt-reverse — Docker Compose
+# ============================================================
+# Usage:
+#   local:    docker compose up -d
+#   dev:      docker compose --profile dev up -d
+#   mvp:      docker compose --profile mvp up -d
+#   cleanup:  docker compose down -v
+# ============================================================
 
-  # Database Services
+services:
+
+  # ── Shared Infrastructure ────────────────────────────
+
   postgres-main:
     image: postgres:16-alpine
-    container_name: mkt-reverse-postgres-main
+    container_name: mkt-postgres
     environment:
       POSTGRES_DB: marketplace_main
       POSTGRES_USER: marketplace_user
       POSTGRES_PASSWORD: marketplace_pass
-      POSTGRES_MULTIPLE_DATABASES: user_management,sourcing_management,supplier_management,contract_management,analytics
     ports:
       - "5432:5432"
     volumes:
       - postgres_main_data:/var/lib/postgresql/data
-      - ./docker/postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro
-      - ./docker/postgres/init-schemas.sql:/docker-entrypoint-initdb.d/init-schemas.sql:ro
-    networks:
-      - marketplace-network
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./docker/postgres/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U marketplace_user -d marketplace_main"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - mkt-network
+    profiles: [local, dev, mvp]
 
-  postgres-events:
+  postgres-user:
     image: postgres:16-alpine
-    profiles: ["platform"]
-    container_name: mkt-reverse-postgres-events
+    container_name: mkt-postgres-user
     environment:
-      POSTGRES_DB: marketplace_events
-      POSTGRES_USER: events_user
-      POSTGRES_PASSWORD: events_pass
+      POSTGRES_DB: user_management
+      POSTGRES_USER: marketplace_user
+      POSTGRES_PASSWORD: marketplace_pass
     ports:
       - "5433:5432"
     volumes:
-      - postgres_events_data:/var/lib/postgresql/data
-      - ./docker/postgres/init-event-store.sql:/docker-entrypoint-initdb.d/init-event-store.sql:ro
+      - postgres_user_data:/var/lib/postgresql/data
     networks:
-      - marketplace-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U events_user -d marketplace_events"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - mkt-network
+    profiles: [local, dev]
 
-  # Redis for Caching and Sessions
-  redis:
-    image: redis:7-alpine
-    profiles: ["platform"]
-    container_name: mkt-reverse-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
-    command: redis-server /usr/local/etc/redis/redis.conf
-    networks:
-      - marketplace-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Message Broker - RabbitMQ
   rabbitmq:
-    image: rabbitmq:3-management
-    profiles: ["platform"]
-    container_name: mkt-reverse-rabbitmq
-    restart: unless-stopped
+    image: rabbitmq:3-management-alpine
+    container_name: mkt-rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: marketplace
+      RABBITMQ_DEFAULT_PASS: marketplace_pass
+      RABBITMQ_DEFAULT_VHOST: marketplace
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - marketplace-network
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mkt-network
+    profiles: [local, dev, mvp]
+
+  redis:
+    image: redis:7-alpine
+    container_name: mkt-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - mkt-network
+    profiles: [local, dev]
+
+  # ── Applications ─────────────────────────────────────
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: application/api-gateway/Dockerfile
+      target: development
+    container_name: mkt-api-gateway
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-main:5432/marketplace_main
+      SPRING_DATASOURCE_USERNAME: marketplace_user
+      SPRING_DATASOURCE_PASSWORD: marketplace_pass
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: marketplace
+      SPRING_RABBITMQ_PASSWORD: marketplace_pass
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-queroja-mvp-secret-key-minimo-256-bits-para-hs256}
+      JWT_ACCESS_TOKEN_VALIDITY: 3600000
+      JWT_REFRESH_TOKEN_VALIDITY: 604800000
+      LOGGING_LEVEL_COM_MARKETPLACE: DEBUG
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres-main:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 3
+      start_period: 60s
+    networks:
+      - mkt-network
+    profiles: [local, dev, mvp]
 
+  web-app:
+    build:
+      context: ./application/web-app
+      dockerfile: Dockerfile
+      target: development
+    container_name: mkt-web-app
+    environment:
+      VITE_API_URL: http://localhost:8081/api/v1
+      VITE_WS_URL: ws://localhost:8081/ws
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api-gateway
+    networks:
+      - mkt-network
+    profiles: [local, dev]
+
+  # ── Developer Tools ────────────────────────────────
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mkt-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - mkt-network
+    profiles: [local]
+
+  adminer:
+    image: adminer:latest
+    container_name: mkt-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres-main
+    networks:
+      - mkt-network
+    profiles: [local]
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: mkt-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+      SPAN_STORAGE_TYPE: badger
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - mkt-network
+    profiles: [local]
+
+networks:
+  mkt-network:
+    driver: bridge
+
+volumes:
+  postgres_main_data:
+  postgres_user_data:
+  rabbitmq_data:
+  redis_data:

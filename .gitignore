@@ -1,65 +1,57 @@
-# Maven
+# Build outputs
 target/
-pom.xml.tag
-pom.xml.releaseBackup
-pom.xml.versionsBackup
-pom.xml.next
-release.properties
-dependency-reduced-pom.xml
-buildNumber.properties
-.mvn/timing.properties
-.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+.DS_Store
 
 # Java
 *.class
 *.jar
 *.war
 *.ear
-*.zip
-*.tar.gz
-*.rar
-hs_err_pid*
+*.logs
+*.out
 
-# IDE
-.idea/
-*.iml
-*.iws
-*.ipr
-.vscode/
-*.swp
-*.swo
-*~
+# Maven
+pom.xml.orig
+pom.xml.bak
+.mvn/wrapper/maven-wrapper.jar
 
-# Spring Boot
-application-local.yml
-application-dev.yml
-application-prod.yml
-
-# Docker
-.dockerignore
-
-# OS
-Thumbs.db
-.DS_Store
-
-# Logs
-logs/
-*.log
-
-# Node
+# Node / Frontend
 node_modules/
 dist/
-build/
-.vite/
+.env.local
+.env.*.local
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test outputs
+/cobertura/
+jacoco*.xml
+*.gcov
+*.exec
+.nox/
+.pytest_cache/
+
+# Agent / AI tool configs
+.Jules/
+.agents/
+.openclaw/
 
 # Python
+*.pyc
 __pycache__/
-*.py[cod]
-env/
-venv/
-.env/
-.venv/
+test.py
 
-# Temporary files
-*.tmp
-*.bak
+# Logs
+*.log
+
+# OS noise
+Thumbs.db
