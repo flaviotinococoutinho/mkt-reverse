@@ -22,7 +22,7 @@ export function Pager({ page, totalPages, onPrev, onNext }: Props) {
       >
         ←
       </button>
-      <div className="pagerText" aria-live="polite">
+      <div className="pagerText" aria-current="page" aria-live="polite" aria-atomic="true">
         <span className="mono">page</span> {page + 1} <span className="muted">/ {totalPages || 1}</span>
       </div>
       <button
