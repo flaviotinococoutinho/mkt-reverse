@@ -7,15 +7,18 @@ describe('Pager UX/A11y', () => {
     render(<Pager page={1} totalPages={5} onPrev={vi.fn()} onNext={vi.fn()} />)
 
     const nav = screen.getByRole('navigation')
-    expect(nav.getAttribute('aria-label')).toBe('Pagination')
+    expect(nav.getAttribute('aria-label')).toBe('Paginação')
 
-    const prevBtn = screen.getByLabelText('Previous page')
+    const prevBtn = screen.getByLabelText('Página anterior')
     expect(prevBtn).toBeDefined()
 
-    const nextBtn = screen.getByLabelText('Next page')
+    const nextBtn = screen.getByLabelText('Próxima página')
     expect(nextBtn).toBeDefined()
 
     const current = screen.getByText('page')
-    expect(current.parentElement?.getAttribute('aria-current')).toBe('page')
+    // aria-current is intentionally omitted on the generic text container,
+    // so we don't test for it here, but we can verify aria-live and aria-atomic
+    expect(current.parentElement?.getAttribute('aria-live')).toBe('polite')
+    expect(current.parentElement?.getAttribute('aria-atomic')).toBe('true')
   })
 })

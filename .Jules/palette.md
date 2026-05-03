@@ -5,3 +5,6 @@
 ## 2024-05-24 - Dynamic ARIA Labels in Attribute Lists
 **Learning:** When dealing with dynamic lists of inputs (like key-value attribute editors), icon-only remove buttons need specific, dynamic `aria-label`s (e.g., "Remove attribute Size") rather than generic ones ("Remove attribute") so screen reader users know exactly which item they are deleting.
 **Action:** Always interpolate the item's identifying value into the `aria-label` for list item actions.
+## 2026-05-03 - Adding accessibility attributes to generic text containers and inline errors
+**Learning:** In this application, inline errors often use the `errorInline` class but lack a proper `role="alert"` and `aria-live="assertive"` attribute. Also, generic pagination text components needed `aria-atomic="true"` alongside `aria-live="polite"` to ensure screen readers announce the full text. Additionally, tests were sometimes written with English assertions while the actual components correctly used Portuguese labels.
+**Action:** Apply these accessibility patterns (ARIA live regions and alert roles) to any new inline errors, and ensure tests use the exact localized strings.
