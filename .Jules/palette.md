@@ -5,3 +5,7 @@
 ## 2024-05-24 - Dynamic ARIA Labels in Attribute Lists
 **Learning:** When dealing with dynamic lists of inputs (like key-value attribute editors), icon-only remove buttons need specific, dynamic `aria-label`s (e.g., "Remove attribute Size") rather than generic ones ("Remove attribute") so screen reader users know exactly which item they are deleting.
 **Action:** Always interpolate the item's identifying value into the `aria-label` for list item actions.
+
+## 2025-02-13 - Add ARIA Roles to Inline Error Messages
+**Learning:** Found several pages and components (`AttributeEditor.tsx`, `EventDetailPage.tsx`, `CreateEventPage.tsx`) using a `.errorInline` CSS class to dynamically display asynchronous submission or validation errors without proper accessibility roles. As a result, screen readers were missing these crucial error notifications.
+**Action:** When dynamically rendering inline error messages, always ensure they carry `role="alert"` and `aria-live="assertive"` to forcefully and immediately announce the error to screen readers.
