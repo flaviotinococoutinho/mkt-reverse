@@ -5,3 +5,7 @@
 ## 2024-05-24 - Dynamic ARIA Labels in Attribute Lists
 **Learning:** When dealing with dynamic lists of inputs (like key-value attribute editors), icon-only remove buttons need specific, dynamic `aria-label`s (e.g., "Remove attribute Size") rather than generic ones ("Remove attribute") so screen reader users know exactly which item they are deleting.
 **Action:** Always interpolate the item's identifying value into the `aria-label` for list item actions.
+
+## 2024-06-08 - ARIA attributes on inline asynchronous errors
+**Learning:** Found that inline asynchronous error messages (like `errorInline` used for form submission failures or dynamic validation errors) were not being announced to screen readers because they lacked semantic alerting attributes.
+**Action:** When creating or modifying inline error messages that appear asynchronously, always ensure they are wrapped in an element with `role="alert"` and `aria-live="assertive"` so that assistive technologies announce them immediately when they appear on the screen.
