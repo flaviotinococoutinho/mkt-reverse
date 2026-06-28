@@ -5,3 +5,7 @@
 ## 2024-05-24 - Dynamic ARIA Labels in Attribute Lists
 **Learning:** When dealing with dynamic lists of inputs (like key-value attribute editors), icon-only remove buttons need specific, dynamic `aria-label`s (e.g., "Remove attribute Size") rather than generic ones ("Remove attribute") so screen reader users know exactly which item they are deleting.
 **Action:** Always interpolate the item's identifying value into the `aria-label` for list item actions.
+
+## 2024-06-28 - ARIA Labels for Inline Errors
+**Learning:** In the frontend React application (`frontend/mkt-reverse-web`), inline error messages (often styled with the `errorInline` class) lack accessibility attributes by default. Without `role="alert"` and `aria-live="assertive"`, asynchronous validation or submission failures are not properly announced to screen readers.
+**Action:** When creating or modifying dynamic inline error messages, always ensure they include `role="alert"` and `aria-live="assertive"` so that the errors are immediately communicated to users of assistive technologies.
