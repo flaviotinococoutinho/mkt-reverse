@@ -10,8 +10,8 @@
     <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>Marketplace Reverso</name>
-    <description>Plataforma de Marketplace Reverso B2B com Leilões e Smart Contracts</description>
+    <name>QueroJá — Marketplace Reverso C2B</name>
+    <description>Marketplace reverso C2B para produtos físicos de nicho: intenção de compra estruturada, propostas seladas e escrow via PSP autorizado</description>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -56,12 +56,6 @@
         
         <!-- Documentation -->
         <springdoc.version>2.3.0</springdoc.version>
-        
-        <!-- Blockchain -->
-        <web3j.version>4.10.3</web3j.version>
-        
-        <!-- ML/AI -->
-        <deeplearning4j.version>1.0.0-M2.1</deeplearning4j.version>
 
         <!-- Code generation / annotation processors -->
         <lombok.version>1.18.42</lombok.version>
@@ -80,23 +74,16 @@
         <module>shared/shared-domain</module>
         <module>shared/shared-infrastructure</module>
         <module>shared/shared-events</module>
-        
-        <!-- Core Business Modules -->
+
+        <!-- Core Business Modules (fluxo: intenção -> propostas seladas -> aceite) -->
         <module>modules/user-management</module>
         <module>modules/sourcing-management</module>
-        <module>modules/supplier-management</module>
-        <module>modules/auction-engine</module>
-        <module>modules/contract-management</module>
-        <module>modules/notification-service</module>
-        <module>modules/analytics-service</module>
         <module>modules/catalog-management</module>
-        <!-- <module>modules/opportunity-service</module> -->
-        
-        <!-- Integration Modules -->
+
+        <!-- Roadmap Fase 1 (escrow via PSP + notificações críticas) -->
+        <module>modules/notification-service</module>
         <module>modules/payment-integration</module>
-        <module>modules/blockchain-integration</module>
-        <module>modules/erp-integration</module>
-        
+
         <!-- Application -->
         <module>application/api-gateway</module>
         <module>application/web-app</module>
@@ -223,13 +210,6 @@
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                 <version>${springdoc.version}</version>
-            </dependency>
-            
-            <!-- Blockchain -->
-            <dependency>
-                <groupId>org.web3j</groupId>
-                <artifactId>core</artifactId>
-                <version>${web3j.version}</version>
             </dependency>
             
             <!-- Observability -->

@@ -139,15 +139,21 @@ BEGIN
     SELECT 
         e.mcc_category_code,
         COUNT(*)::bigint,
+        -- Labels da taxonomia curada (códigos MCC reais, ISO 18245).
+        -- Mantenha em sincronia com MccCategory.java (denylist estrutural).
         CASE e.mcc_category_code
-            WHEN 174 THEN 'Eletrônicos e Informática'
-            WHEN 275 THEN 'Vestuário e Acessórios'
-            WHEN 553 THEN 'Autos e Peças'
-            WHEN 521 THEN 'Móveis e Decoração'
-            WHEN 571 THEN 'Imóveis'
-            WHEN 501 THEN 'Médicos e Farmacêuticos'
-            WHEN 581 THEN 'Alimentos e Bebidas'
-            WHEN 504 THEN 'Máquinas e Equipamentos'
+            WHEN 5937 THEN 'Antiguidades'
+            WHEN 5945 THEN 'Hobby, Brinquedos e Jogos'
+            WHEN 5942 THEN 'Livros'
+            WHEN 5972 THEN 'Selos e Moedas'
+            WHEN 5931 THEN 'Moda Circular e Segunda Mão'
+            WHEN 5533 THEN 'Autopeças e Acessórios'
+            WHEN 5065 THEN 'Peças e Equipamentos Elétricos'
+            WHEN 5085 THEN 'Suprimentos Industriais'
+            WHEN 5251 THEN 'Ferragens'
+            WHEN 5732 THEN 'Eletrônicos'
+            WHEN 7699 THEN 'Oficinas de Reparo'
+            WHEN 7629 THEN 'Reparo Elétrico'
             ELSE 'Outros'
         END::text as label
     FROM src_sourcing_events e

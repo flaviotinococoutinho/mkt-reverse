@@ -28,9 +28,9 @@
 - **Spring Data JPA** — ORM with PostgreSQL
 - **Spring Security + JWT** — stateless auth with refresh tokens
 - **Bean Validation** — declarative input validation
-- **@PreAuthorize (RBAC)** — role-based access control on methods
-- **Chain of Responsibility** — validation handlers (extensible)
-- **Input Sanitizer** — XSS prevention via whitelist
+- **@PreAuthorize (RBAC)** — role-based access control on methods (`@EnableMethodSecurity`)
+- **Spring GraphQL** — superfície complementar de consulta/mutação (mesmo domínio da REST)
+- **Typed attribute schema** — validação dura de atributos por categoria MCC (`CategoryAttributeSchema`)
 
 ### Frontend
 - **React 18** — component-based UI
@@ -51,9 +51,8 @@
 | Rejected | Reason |
 |----------|--------|
 | **WebFlux + R2DBC** | Reactive needed only at high concurrency; adds complexity without near-term MVP benefit |
-| **GraphQL** | REST sufficient for current API surface; can add later if needed |
 | **Kafka** | RabbitMQ is sufficient for event streaming at MVP scale |
-| **Elasticsearch** | PostgreSQL full-text search sufficient for MVP; upgrade path exists |
+| **Elasticsearch** | PostgreSQL full-text search é o padrão; OpenSearch existe apenas como read-model opcional atrás de flag (`marketplace.search.opensearch.enabled`) |
 | **MongoDB** | Relational model fits the domain; no document-store need identified |
 | **gRPC** | REST is simpler and sufficient for external API |
 
@@ -61,9 +60,9 @@
 
 **Layered Architecture** (simplified Clean Architecture):
 ```
-request → Controller → Service → Repository → Database
-                  ↓
-              Validator (Chain of Responsibility)
+request → Controller → Application Service → Repository → Database
+                                 ↓
+                    Domain (aggregates + value objects)
 ```
 
 - **Controllers** — HTTP handling only, no business logic
@@ -79,7 +78,7 @@ request → Controller → Service → Repository → Database
 | Protocol | REST over HTTP |
 | Format | JSON (`application/json`) |
 | Errors | RFC 7807 Problem Details |
-| Pagination | Cursor-based (`?cursor=&limit=`) |
+| Pagination | Page-based (`?page=&size=`), HAL/HATEOAS nas listagens |
 | Sorting | `?sort=createdAt,desc` |
 | Auth | Bearer JWT in `Authorization` header |
 | Timestamps | ISO-8601 UTC |

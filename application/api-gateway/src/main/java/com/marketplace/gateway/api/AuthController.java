@@ -6,6 +6,7 @@ import com.marketplace.user.domain.repository.UserRepository;
 import com.marketplace.user.domain.valueobject.Document;
 import com.marketplace.user.domain.valueobject.Password;
 import com.marketplace.user.domain.valueobject.PersonalInfo;
+import com.marketplace.user.domain.valueobject.UserType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -89,7 +90,7 @@ public class AuthController {
         
         // Busca usuário pelo ID
         java.util.UUID uuid = java.util.UUID.fromString(userId);
-        User user = userRepository.findById(new com.marketplace.user.domain.valueobject.UserId(uuid))
+        User user = userRepository.findById(com.marketplace.user.domain.valueobject.UserId.of(uuid))
                 .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
 
         return generateAuthResponse(user);

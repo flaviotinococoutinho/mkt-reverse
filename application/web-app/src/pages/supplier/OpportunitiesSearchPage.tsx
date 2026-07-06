@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppHeader } from '../../components/layout/AppHeader';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { useAuth } from '../../context/useAuth';
 import { useToast } from '../../components/ui/feedback';
-import { Loading, ListSkeleton, NoResults } from '../../components/ui/feedback';
+import { ListSkeleton, NoResults } from '../../components/ui/feedback';
 import {
   searchOpportunities,
   autocompleteOpportunities,
@@ -14,7 +13,6 @@ import {
   MCC_CATEGORIES,
   VISIBILITY_OPTIONS,
   SORT_OPTIONS,
-  PAGE_SIZE_OPTIONS,
   type SearchFilters,
   type SearchResponse,
   type CategoryFacet,
@@ -25,7 +23,6 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  Loader2,
 } from 'lucide-react';
 
 // Debounce hook for autocomplete
@@ -43,8 +40,7 @@ function useDebounce<T>(value: T, delay: number): T {
 export default function OpportunitiesSearchPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
-  const { error: showError, success } = useToast();
+  const { error: showError } = useToast();
 
   const [results, setResults] = useState<SearchResponse | null>(null);
   const [facets, setFacets] = useState<CategoryFacet[]>([]);

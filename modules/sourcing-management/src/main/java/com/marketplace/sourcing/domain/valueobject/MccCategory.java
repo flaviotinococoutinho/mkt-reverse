@@ -1,96 +1,101 @@
 package com.marketplace.sourcing.domain.valueobject;
 
-import java.util.Set;
-import org.springframework.cache.annotation.Cacheable;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
- * MCC Category codes with validation and caching.
- * 
- * Reference: ISO 18245 - Merchant Category Codes
- * 
- * Object Calisthenics:
- * - Immutable value object
- * - No getters returning mutable objects
- * - Named constants
+ * Curated marketplace taxonomy backed by real MCC codes (ISO 18245).
+ *
+ * Compliance by design (see docs/compliance/guardrails.md):
+ * - The taxonomy is a structural denylist: prohibited categories (weapons,
+ *   pharmaceuticals, live animals, protected fauna/flora, personal documents,
+ *   named tickets, etc.) simply do not exist here. Forbidding by absence is
+ *   cheaper than moderating by presence.
+ * - A buyer intent or seller proposal can only reference a category present
+ *   in this enum, and each category maps to a typed attribute schema
+ *   (see {@link CategoryAttributeSchema}).
+ *
+ * Niche sequencing (kickoff plan): collectibles first, circular fashion
+ * second, auto parts last and restricted — the sequencing is enforced
+ * operationally (which categories are opened per phase), not by this type.
  */
-public final class MccCategory {
+public enum MccCategory {
 
-    private static final String CACHE_MCC = "mccCategories";
-    
-    // Valid MCC codes for the marketplace
-    private static final Set<Integer> VALID_CODES = Set.of(
-            174, // Electronics and Computer
-            275, // Apparel and Accessories
-            553, // Automotive Parts and Services
-            521, // Furniture and Home Furnishings
-            571, // Real Estate
-            501, // Medical and Pharmaceutical
-            581, // Food and Beverages
-            504, // Machinery and Equipment
-            821, // Professional Services
-            829  // Other Services
-    );
+    // ── Nicho 1 (kickoff): Colecionáveis ────────────────────────────
+    ANTIQUES(5937, "Antique Stores", "Collectibles"),
+    HOBBY_TOY_GAME(5945, "Hobby, Toy and Game Shops", "Collectibles"),
+    BOOK_STORES(5942, "Book Stores", "Collectibles"),
+    STAMP_COIN_STORES(5972, "Stamp and Coin Stores", "Collectibles"),
 
-    private final Integer code;
+    // ── Nicho 2 (Fase 2): Moda circular / segunda mão ───────────────
+    USED_MERCHANDISE(5931, "Used Merchandise and Secondhand Stores", "Circular Fashion"),
+
+    // ── Nicho 3 (Fase 3, restrito): Autopeças e hardware ────────────
+    MOTOR_VEHICLE_PARTS(5533, "Automotive Parts and Accessories Stores", "Automotive"),
+    ELECTRICAL_PARTS_EQUIPMENT(5065, "Electrical Parts and Equipment", "Industrial"),
+    INDUSTRIAL_SUPPLIES(5085, "Industrial Supplies (Not Elsewhere Classified)", "Industrial"),
+    HARDWARE_STORES(5251, "Hardware Stores", "Industrial"),
+    ELECTRONICS_STORES(5732, "Electronics Stores", "Technology"),
+    REPAIR_SHOPS(7699, "Miscellaneous Repair Shops and Related Services", "Services"),
+    ELECTRICAL_REPAIR(7629, "Electrical and Small Appliance Repair Shops", "Services"),
+
+    // ── Fallback controlado ──────────────────────────────────────────
+    OTHER(5999, "Miscellaneous and Specialty Retail Stores", "Other");
+
+    private static final Map<Integer, MccCategory> BY_CODE = Arrays.stream(values())
+        .collect(Collectors.toUnmodifiableMap(MccCategory::getCode, Function.identity()));
+
+    private final int code;
     private final String description;
     private final String segment;
 
-    private MccCategory(Integer code, String description, String segment) {
+    MccCategory(int code, String description, String segment) {
         this.code = code;
         this.description = description;
         this.segment = segment;
     }
 
     /**
-     * Validates if a code is valid.
+     * Validates if a code belongs to the curated taxonomy.
      */
     public static boolean isValid(Integer code) {
-        return code != null && VALID_CODES.contains(code);
+        return code != null && BY_CODE.containsKey(code);
     }
 
     /**
-     * Returns the MCC code or throws if invalid.
+     * Returns the category for the code or throws if it is not part of the
+     * curated taxonomy (structural denylist: unknown code = forbidden).
      */
     public static MccCategory requireFromCode(Integer code) {
-        if (!isValid(code)) {
-            throw new IllegalArgumentException("Invalid MCC code: " + code + 
-                    ". Valid codes are: " + VALID_CODES);
+        MccCategory category = fromCode(code);
+        if (category == null) {
+            throw new IllegalArgumentException("Invalid MCC code: " + code
+                + ". Valid codes are: " + BY_CODE.keySet());
         }
-        return fromCode(code);
+        return category;
     }
 
     /**
-     * Gets MCC from code, returns null if invalid.
+     * Gets the category from a code, returning null when unknown.
      */
     public static MccCategory fromCode(Integer code) {
         if (code == null) {
             return null;
         }
-        return switch (code) {
-            case 174 -> new MccCategory(174, "Electronics and Computer", "Technology");
-            case 275 -> new MccCategory(275, "Apparel and Accessories", "Fashion");
-            case 553 -> new MccCategory(553, "Automotive Parts and Services", "Automotive");
-            case 521 -> new MccCategory(521, "Furniture and Home Furnishings", "Home");
-            case 571 -> new MccCategory(571, "Real Estate", "Property");
-            case 501 -> new MccCategory(501, "Medical and Pharmaceutical", "Healthcare");
-            case 581 -> new MccCategory(581, "Food and Beverages", "Food");
-            case 504 -> new MccCategory(504, "Machinery and Equipment", "Industrial");
-            case 821 -> new MccCategory(821, "Professional Services", "Services");
-            case 829 -> new MccCategory(829, "Other Services", "Services");
-            default -> new MccCategory(code, "Category " + code, "Other");
-        };
+        return BY_CODE.get(code);
     }
 
-    public Integer getCode() { return code; }
-    public String getDescription() { return description; }
-    public String getSegment() { return segment; }
+    public Integer getCode() {
+        return code;
+    }
 
-    @Override
-    public String toString() {
-        return "MccCategory{" +
-                "code=" + code +
-                ", description='" + description + '\'' +
-                ", segment='" + segment + '\'' +
-                '}';
+    public String getDescription() {
+        return description;
+    }
+
+    public String getSegment() {
+        return segment;
     }
 }

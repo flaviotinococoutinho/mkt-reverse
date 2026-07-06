@@ -93,18 +93,6 @@ public sealed interface SourcingSchema
         @JsonProperty("buyer_contact_email")
         String buyerContactEmail
     ) implements SourcingSchema {
-
-        public static final String TYPE_RFQ = "RFQ";
-        public static final String TYPE_REVERSE_AUCTION = "REVERSE_AUCTION";
-        public static final String TYPE_MARKETPLACE = "MARKETPLACE";
-
-        public static final Set<String> VALID_TYPES = Set.of(
-                TYPE_RFQ, TYPE_REVERSE_AUCTION, TYPE_MARKETPLACE
-        );
-
-        public static final Set<String> VALID_MCC_CODES = Set.of(
-                174, 275, 553, 521, 571, 501, 581, 504, 821, 829
-        );
     }
 
     /** Response after creating an event. */
@@ -169,14 +157,6 @@ public sealed interface SourcingSchema
         @JsonProperty("attributes")
         List<SpecAttributeSchema> attributes
     ) implements SourcingSchema {
-
-        public static final Set<String> VALID_CONDITIONS = Set.of(
-                "NEW", "REFURBISHED", "USED", "SAMPLE"
-        );
-
-        public static final Set<String> VALID_SHIPPING_MODES = Set.of(
-                "EXWORKS", "FOB", "CIF", "DDP"
-        );
     }
 
     /** Response after submitting a proposal. */

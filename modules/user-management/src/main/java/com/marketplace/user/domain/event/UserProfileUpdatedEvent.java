@@ -79,6 +79,21 @@ public class UserProfileUpdatedEvent implements DomainEvent {
         return !oldPersonalInfo.getDisplayName().equals(newPersonalInfo.getDisplayName());
     }
 
+    @Override
+    public String getEventType() {
+        return "UserProfileUpdatedEvent";
+    }
+
+    @Override
+    public String getEventVersion() {
+        return "1.0";
+    }
+
+    @Override
+    public Instant getOccurredAt() {
+        return occurredOn;
+    }
+
     /**
      * Gets the event payload for serialization
      */

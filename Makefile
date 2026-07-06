@@ -144,21 +144,18 @@ db-migrate: ## Run database migrations
 	@echo "$(BLUE)Running database migrations...$(NC)"
 	@mvn flyway:migrate -pl modules/user-management
 	@mvn flyway:migrate -pl modules/sourcing-management
-	@mvn flyway:migrate -pl modules/supplier-management
 	@echo "$(GREEN)Database migrations completed!$(NC)"
 
 db-clean: ## Clean database (drop all objects)
 	@echo "$(RED)Cleaning database...$(NC)"
 	@mvn flyway:clean -pl modules/user-management
 	@mvn flyway:clean -pl modules/sourcing-management
-	@mvn flyway:clean -pl modules/supplier-management
 	@echo "$(GREEN)Database cleaned!$(NC)"
 
 db-info: ## Show database migration info
 	@echo "$(BLUE)Database migration info:$(NC)"
 	@mvn flyway:info -pl modules/user-management
 	@mvn flyway:info -pl modules/sourcing-management
-	@mvn flyway:info -pl modules/supplier-management
 
 db-reset: db-clean db-migrate ## Reset database (clean + migrate)
 	@echo "$(GREEN)Database reset completed!$(NC)"
@@ -358,10 +355,6 @@ user-service: ## Start only user management service
 sourcing-service: ## Start only sourcing management service
 	@echo "$(BLUE)Starting Sourcing Management service...$(NC)"
 	@mvn spring-boot:run -pl modules/sourcing-management -Dspring-boot.run.profiles=dev
-
-supplier-service: ## Start only supplier management service
-	@echo "$(BLUE)Starting Supplier Management service...$(NC)"
-	@mvn spring-boot:run -pl modules/supplier-management -Dspring-boot.run.profiles=dev
 
 ##@ Utilities
 

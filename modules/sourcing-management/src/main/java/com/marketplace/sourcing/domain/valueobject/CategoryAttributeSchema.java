@@ -50,12 +50,15 @@ public final class CategoryAttributeSchema {
                  ELECTRICAL_PARTS_EQUIPMENT,
                  INDUSTRIAL_SUPPLIES,
                  HARDWARE_STORES,
+                 ELECTRONICS_STORES,
                  REPAIR_SHOPS,
                  ELECTRICAL_REPAIR -> HARDWARE_PARTS;
 
             case ANTIQUES,
                  HOBBY_TOY_GAME,
-                 BOOK_STORES -> COLLECTIBLES;
+                 BOOK_STORES,
+                 STAMP_COIN_STORES,
+                 USED_MERCHANDISE -> COLLECTIBLES;
 
             case OTHER -> new Schema(Set.of(), Map.of());
         };

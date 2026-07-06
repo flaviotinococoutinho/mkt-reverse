@@ -62,6 +62,21 @@ public class UserCreatedEvent implements DomainEvent {
         ));
     }
 
+    @Override
+    public String getEventType() {
+        return "UserCreatedEvent";
+    }
+
+    @Override
+    public String getEventVersion() {
+        return "1.0";
+    }
+
+    @Override
+    public Instant getOccurredAt() {
+        return occurredOn;
+    }
+
     /**
      * Gets the event payload for serialization
      */

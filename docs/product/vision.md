@@ -1,7 +1,12 @@
-# Visão do Produto: "Compre-Pra-Mim"
+# Visão do Produto: QueroJá
 ## O Progresso que Nossos Clientes Buscam
 
 Este documento sintetiza os "Jobs-to-be-Done" (JTBD) — as tarefas, metas e progressos — que nossos dois principais clientes, Compradores e Vendedores, buscam alcançar. Entender isso é fundamental para construir uma solução que eles realmente queiram "contratar".
+
+> **Como esses JTBD viram produto:** o modelo de negócio ajustado (propostas seladas, escrow via
+> PSP, nichos sequenciados — colecionáveis → moda circular → autopeças restrito) está em
+> [business-model.md](business-model.md); os limites regulatórios em
+> [../compliance/guardrails.md](../compliance/guardrails.md).
 
 ---
 

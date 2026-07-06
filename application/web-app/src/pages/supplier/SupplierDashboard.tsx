@@ -11,9 +11,8 @@ import {
   Clock,
   TrendingUp,
   AlertCircle,
-  Search,
 } from 'lucide-react';
-import { Loading, ListSkeleton, NoData } from '../../components/ui/feedback';
+import { ListSkeleton, NoData } from '../../components/ui/feedback';
 import { useToast } from '../../components/ui/feedback';
 
 type IconComponent = React.ComponentType<{ className?: string }>;

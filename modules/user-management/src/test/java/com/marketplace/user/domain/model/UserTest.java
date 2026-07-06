@@ -87,12 +87,9 @@ class UserTest {
         User user = newUser();
         user.activate();
 
-        Password current = user.getPassword();
-        Password newPassword = Password.of("An0ther@StrongPwd");
+        user.changePassword("S3cur3@Token99", "An0ther@StrongPwd");
 
-        user.changePassword(current, newPassword);
-
-        assertThat(user.getPassword()).isEqualTo(newPassword);
+        assertThat(user.getPassword().matchesPlainText("An0ther@StrongPwd")).isTrue();
     }
 
     @Test
@@ -100,10 +97,7 @@ class UserTest {
         User user = newUser();
         user.activate();
 
-        Password wrong = Password.of("Wr0ng@Passwd");
-        Password newPassword = Password.of("NewStr0ng@Pass");
-
-        assertThatThrownBy(() -> user.changePassword(wrong, newPassword))
+        assertThatThrownBy(() -> user.changePassword("Wr0ng@Passwd", "NewStr0ng@Pass"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Current password is incorrect");
     }

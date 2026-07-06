@@ -21,28 +21,6 @@ const icons = {
   'no-users': Users,
 };
 
-const messages = {
-  default: {
-    icon: Inbox,
-    title: 'Nenhum item encontrado',
-    description: 'Não há dados para exibir no momento.',
-  },
-  search: {
-    icon: Search,
-    title: 'Nenhum resultado',
-    description: 'Tente buscar com outros termos.',
-  },
-  'no-results': {
-    icon: FileX,
-    title: 'Sem resultados',
-    description: 'Não encontramos o que você procura.',
-  },
-  'no-users': {
-    icon: Users,
-    title: 'Nenhum usuário',
-    description: 'Não há usuários para exibir.',
-  },
-};
 
 export const EmptyState: React.FC<EmptyStateProps> = ({ 
   variant = 'default',

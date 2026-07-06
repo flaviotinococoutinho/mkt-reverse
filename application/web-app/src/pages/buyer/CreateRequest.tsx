@@ -7,10 +7,9 @@ import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../context/useAuth';
 import { AppHeader } from '../../components/layout/AppHeader';
 import { sourcingService } from '../../services/sourcingService';
-import { Loader2, ArrowLeft, ArrowRight, Send, Eye, Edit3 } from 'lucide-react';
+import { ArrowLeft, Send, Eye, Edit3 } from 'lucide-react';
 import { useToast } from '../../components/ui/feedback';
 import { getEventTypeLabel } from '../../lib/eventType';
-import { formatBrlFromCents } from '../../lib/currency';
 import { formatBrazilPhone } from '../../lib/phone';
 
 const createRequestSchema = z.object({
@@ -23,11 +22,12 @@ const createRequestSchema = z.object({
     }, { message: 'Telefone inválido (10 ou 11 dígitos)' }),
   title: z.string().min(1, 'Título é obrigatório').min(3, 'Título deve ter pelo menos 3 caracteres'),
   description: z.string().min(1, 'Descrição é obrigatória').min(10, 'Descrição deve ter pelo menos 10 caracteres'),
-  type: z.enum(['RFQ', 'REVERSE_AUCTION', 'MARKETPLACE']),
+  // Kickoff: apenas RFQ (propostas seladas) — leilão aberto está fora do modelo.
+  type: z.enum(['RFQ']),
   productName: z.string().min(1, 'Nome do produto é obrigatório'),
   productDescription: z.string().optional(),
   category: z.string().optional(),
-  unitOfMeasure: z.string().default('un'),
+  unitOfMeasure: z.string().min(1, 'Unidade é obrigatória'),
   quantityRequired: z.number().min(1, 'Quantidade deve ser pelo menos 1'),
   validForHours: z.number().min(1, 'Validade deve ser pelo menos 1 hora'),
 });
@@ -35,9 +35,7 @@ const createRequestSchema = z.object({
 type CreateRequestFormData = z.infer<typeof createRequestSchema>;
 
 const EVENT_TYPES = [
-  { value: 'RFQ', label: 'RFQ (Solicitação de Cotação)' },
-  { value: 'REVERSE_AUCTION', label: 'Leilão Reverso' },
-  { value: 'MARKETPLACE', label: 'Marketplace' },
+  { value: 'RFQ', label: 'Solicitação de Propostas (seladas)' },
 ];
 
 const CATEGORIES = [
@@ -99,7 +97,7 @@ export default function CreateRequest() {
     try {
       const requestData = {
         tenantId: user?.tenantId || 'tenant-default',
-        buyerOrganizationId: user?.organizationId || '',
+        buyerOrganizationId: '',
         buyerContactName: user?.name || '',
         buyerContactPhone: data.buyerContactPhone,
         title: data.title,

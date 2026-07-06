@@ -54,7 +54,10 @@ public class SourcingMvpController {
     @PostMapping("/sourcing-events")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('ROLE_BUYER') or hasAuthority('ROLE_ADMIN')")
-    public EntityModel<CreateSourcingEventResponse> create(@Valid @RequestBody CreateSourcingEventRequest req) {
+    public EntityModel<CreateSourcingEventResponse> create(
+        @Valid @RequestBody CreateSourcingEventRequest req,
+        org.springframework.security.core.Authentication authentication
+    ) {
         ProductSpecification spec = ProductSpecification.of(
             req.productName(),
             req.productDescription(),
@@ -71,10 +74,16 @@ public class SourcingMvpController {
             ? Money.fromCents(req.estimatedBudgetCents(), CurrencyCode.BRL)
             : Money.zero(CurrencyCode.BRL);
 
+        // The authenticated user becomes the buyer contact so that ownership
+        // checks (e.g. only the owner accepts a proposal) bind to a real identity.
+        String buyerContactId = authentication != null && authentication.getName() != null
+            ? authentication.getName()
+            : UUID.randomUUID().toString();
+
         SourcingEventId id = service.createAndPublishEvent(
             req.tenantId() != null && !req.tenantId().isBlank() ? req.tenantId() : "tenant-default",
             req.buyerOrganizationId() != null && !req.buyerOrganizationId().isBlank() ? req.buyerOrganizationId() : "org-default",
-            UUID.randomUUID().toString(),
+            buyerContactId,
             req.buyerContactName(),
             req.buyerContactPhone(),
             req.buyerContactEmail(),
@@ -321,7 +330,7 @@ public class SourcingMvpController {
     }
 
     @PostMapping("/sourcing-events/{eventId}/responses/{responseId}/accept")
-    @PreAuthorize("@sourcingSecurityService.isEventOwner(#eventId, authentication.principal.id) or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("@sourcingSecurityService.isEventOwner(#eventId, authentication.name) or hasAuthority('ROLE_ADMIN')")
     public org.springframework.http.ResponseEntity<Void> accept(
         @PathVariable String eventId,
         @PathVariable String responseId,
