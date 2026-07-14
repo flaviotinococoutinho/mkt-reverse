@@ -44,6 +44,17 @@ logging:
   pattern:
     level: "%5p [corr=%X{correlationId:-}]"
 
+marketplace:
+  escrow:
+    # Guardrails de kickoff (docs/compliance/guardrails.md) — sobem por decisão
+    # explícita com dado, nunca por default. O escrow vive no PSP autorizado;
+    # o mock só existe até o adaptador real da Fase 1.
+    mock: ${ESCROW_MOCK:true}
+    max-ticket-cents: ${ESCROW_MAX_TICKET_CENTS:300000}
+    funding-window-hours: ${ESCROW_FUNDING_WINDOW_HOURS:48}
+    shipping-window-days: ${ESCROW_SHIPPING_WINDOW_DAYS:7}
+    inspection-window-hours: ${ESCROW_INSPECTION_WINDOW_HOURS:72}
+
 jwt:
   secret: ${JWT_SECRET:queroja-mvp-secret-key-minimo-256-bits-para-hs256}
   access-token-validity-ms: ${JWT_ACCESS_TOKEN_VALIDITY:3600000}

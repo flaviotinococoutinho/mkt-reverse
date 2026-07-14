@@ -92,6 +92,13 @@ public class SupplierResponse extends AggregateRoot<SupplierResponseId> {
     @Column(name = "submitted_at", nullable = false)
     private Instant submittedAt;
 
+    /**
+     * Sealed proposals are binding offers with an explicit validity
+     * (business model: CC art. 427). Null means legacy rows without expiry.
+     */
+    @Column(name = "valid_until")
+    private Instant validUntil;
+
     @Column(name = "accepted_at")
     private Instant acceptedAt;
 
@@ -106,7 +113,8 @@ public class SupplierResponse extends AggregateRoot<SupplierResponseId> {
         OfferCondition condition,
         ShippingMode shippingMode,
         String attributes,
-        Instant submittedAt
+        Instant submittedAt,
+        Instant validUntil
     ) {
         this.id = id;
         this.eventId = eventId;
@@ -119,6 +127,7 @@ public class SupplierResponse extends AggregateRoot<SupplierResponseId> {
         this.shippingMode = shippingMode != null ? shippingMode : ShippingMode.UNKNOWN;
         this.attributes = attributes;
         this.submittedAt = submittedAt;
+        this.validUntil = validUntil;
         this.status = SupplierResponseStatus.SUBMITTED;
         markAsCreated();
     }
@@ -134,6 +143,27 @@ public class SupplierResponse extends AggregateRoot<SupplierResponseId> {
         OfferCondition condition,
         ShippingMode shippingMode,
         List<SpecAttribute> attributes
+    ) {
+        return submit(id, eventId, supplierId, offerAmount, message, leadTimeDays,
+            warrantyMonths, condition, shippingMode, attributes,
+            Instant.now().plus(DEFAULT_VALIDITY));
+    }
+
+    /** Default validity of a sealed proposal (kickoff guardrail). */
+    public static final java.time.Duration DEFAULT_VALIDITY = java.time.Duration.ofHours(72);
+
+    public static SupplierResponse submit(
+        SupplierResponseId id,
+        SourcingEventId eventId,
+        String supplierId,
+        Money offerAmount,
+        String message,
+        Integer leadTimeDays,
+        Integer warrantyMonths,
+        OfferCondition condition,
+        ShippingMode shippingMode,
+        List<SpecAttribute> attributes,
+        Instant validUntil
     ) {
         Objects.requireNonNull(id, "id is required");
         Objects.requireNonNull(eventId, "eventId is required");
@@ -163,13 +193,23 @@ public class SupplierResponse extends AggregateRoot<SupplierResponseId> {
             condition,
             shippingMode,
             attrsJson,
-            Instant.now()
+            Instant.now(),
+            validUntil
         );
+    }
+
+    /** A proposal past its validity can no longer be accepted. */
+    public boolean isExpired(Instant reference) {
+        Instant ref = reference != null ? reference : Instant.now();
+        return validUntil != null && ref.isAfter(validUntil);
     }
 
     public void accept(Instant reference) {
         if (status != SupplierResponseStatus.SUBMITTED) {
             throw new IllegalStateException("Only submitted responses can be accepted");
+        }
+        if (isExpired(reference)) {
+            throw new IllegalStateException("Proposal validity has expired; it can no longer be accepted");
         }
         this.status = SupplierResponseStatus.ACCEPTED;
         this.acceptedAt = reference != null ? reference : Instant.now();

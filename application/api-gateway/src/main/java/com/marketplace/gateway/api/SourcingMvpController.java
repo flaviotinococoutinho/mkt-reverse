@@ -39,10 +39,16 @@ import java.util.UUID;
 public class SourcingMvpController {
 
     private final SourcingEventApplicationService service;
+    private final AcceptanceCoordinator acceptanceCoordinator;
     private final ObjectProvider<OpportunitySearchClient> opportunitySearchClient;
 
-    public SourcingMvpController(SourcingEventApplicationService service, ObjectProvider<OpportunitySearchClient> opportunitySearchClient) {
+    public SourcingMvpController(
+        SourcingEventApplicationService service,
+        AcceptanceCoordinator acceptanceCoordinator,
+        ObjectProvider<OpportunitySearchClient> opportunitySearchClient
+    ) {
         this.service = service;
+        this.acceptanceCoordinator = acceptanceCoordinator;
         this.opportunitySearchClient = opportunitySearchClient;
     }
 
@@ -336,8 +342,13 @@ public class SourcingMvpController {
         @PathVariable String responseId,
         @RequestParam(required = false) String tenantId
     ) {
-        service.acceptResponse(eventId, responseId, tenantId);
-        return org.springframework.http.ResponseEntity.noContent().build();
+        // Acceptance forms the contract: award + agreement (immutable snapshot)
+        // in one transaction. The agreement id is exposed via header so the
+        // client can drive the escrow flow (fund → ship → deliver → release).
+        var agreement = acceptanceCoordinator.acceptAndOpenAgreement(eventId, responseId, tenantId);
+        return org.springframework.http.ResponseEntity.noContent()
+            .header("X-Agreement-Id", agreement.getId().asString())
+            .build();
     }
 
     public record HealthResponse(boolean ok) {}

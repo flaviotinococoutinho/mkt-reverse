@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
     basePackages = {
         "com.marketplace.gateway",
         "com.marketplace.sourcing",
+        "com.marketplace.agreement",
         "com.marketplace.user",
         "com.marketplace.catalog",
         "com.marketplace.shared"
@@ -19,6 +20,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EntityScan(basePackages = {
     "com.marketplace.gateway",
     "com.marketplace.sourcing",
+        "com.marketplace.agreement",
     "com.marketplace.user",
     "com.marketplace.catalog",
     "com.marketplace.shared"
@@ -26,6 +28,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EnableJpaRepositories(basePackages = {
     "com.marketplace.gateway",
     "com.marketplace.sourcing",
+        "com.marketplace.agreement",
     "com.marketplace.user",
     "com.marketplace.catalog",
     "com.marketplace.shared"

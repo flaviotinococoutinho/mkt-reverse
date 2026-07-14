@@ -139,10 +139,11 @@ mkt-reverse/
 │   └── shared-events/              # Publicadores de eventos de domínio
 ├── modules/                        # Módulos de negócio
 │   ├── user-management/            # CORE — Identidade, JWT + (futuro) KYC/risco
-│   ├── sourcing-management/        # CORE — Intenção (SourcingEvent) → Propostas → Aceite
+│   ├── sourcing-management/        # CORE — Intenção (SourcingEvent) → Propostas seladas → Aceite
 │   ├── catalog-management/         # CORE — Taxonomia e definição de atributos
+│   ├── agreement-management/       # CORE — Contrato & liquidação (máquina de estados + escrow via porta PSP)
 │   ├── notification-service/       # FASE 1 — Notificações críticas (WebSocket/push)
-│   └── payment-integration/        # FASE 1 — Escrow via PSP autorizado (a plataforma NUNCA custodia)
+│   └── payment-integration/        # FASE 1 — Conectores de PSP (a plataforma NUNCA custodia)
 ├── application/
 │   ├── api-gateway/               # CORE — Monólito modular (REST + GraphQL + security)
 │   └── web-app/                   # CORE — React + Vite + TypeScript
@@ -197,13 +198,16 @@ npm run smoke:api   # exige API rodando
 - [x] Autenticação JWT + ownership do aceite
 - [x] Taxonomia MCC curada + schema de atributos tipados
 - [x] Full-text search em PostgreSQL
+- [x] Guardrails de proposta selada: máx. 7 por intenção, 1 por vendedor, validade de 72h
 - [ ] Nicho único (colecionáveis) com oferta semeada em concierge
 - **Gate:** ≥60% das intenções com ≥3 propostas em 48h; ≥25% terminando em aceite
 
 ### Fase 1 — Escrow terceirizado (MVP transacional)
-- [ ] Integração com PSP autorizado (Pix/cartão) — `payment-integration`
-- [ ] Contexto `agreement` (máquina de estados do contrato — ver ARCHITECTURE.md)
-- [ ] Teto de ticket, janela de inspeção de 72h, ODR humana
+- [x] Contexto `agreement`: aceite forma o contrato (snapshot imutável + hash) e abre o fluxo fund → ship → deliver → release | dispute → resolve (ver ARCHITECTURE.md)
+- [x] Teto de ticket (R$ 3.000), janelas de funding (48h), envio (7d) e inspeção (72h) com scheduler de lapso/auto-liberação
+- [x] Porta `EscrowGateway` — o dinheiro nunca transita na plataforma
+- [ ] **Adaptador real de PSP autorizado (Pix/cartão)** — hoje há um mock de desenvolvimento; substituí-lo é pré-condição do gate
+- [ ] ODR humana operando as disputas; UI do fluxo de contrato no web-app
 - [ ] Notificações críticas via WebSocket — `notification-service`
 - **Gate:** disputa <3% do GMV; custo de disputa <25% do take médio
 
