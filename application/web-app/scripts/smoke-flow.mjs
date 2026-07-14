@@ -305,7 +305,7 @@ async function run() {
         ]
       : [],
     validForHours: 48,
-    estimatedBudgetCents: 2500000,
+    estimatedBudgetCents: 300000,
   };
 
   console.log('1) Criando sourcing event...');
@@ -338,7 +338,9 @@ async function run() {
   console.log('3) Enviando proposta do supplier...');
   const submitResponsePayload = {
     supplierId,
-    offerCents: 2350000,
+    // Dentro do teto de escrow do kickoff (ESCROW_MAX_TICKET_CENTS=300000):
+    // o aceite agora abre o contrato e valores acima do teto são recusados.
+    offerCents: 245000,
     leadTimeDays: 7,
     warrantyMonths: 12,
     condition: 'NEW',
