@@ -42,6 +42,7 @@ class SourcingMvpControllerTest {
         createEvent.put("estimatedBudgetCents", 50000);
 
         var eventResp = mvc.perform(post("/api/v1/sourcing-events")
+                .header("Authorization", "Bearer " + buyerToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createEvent)))
             .andExpect(status().isCreated())
@@ -58,6 +59,55 @@ class SourcingMvpControllerTest {
     @Autowired
     ObjectMapper objectMapper;
 
+    private static String buyerToken;
+    private static String supplierToken;
+
+    @org.junit.jupiter.api.BeforeEach
+    void authenticate() throws Exception {
+        if (buyerToken == null) {
+            buyerToken = obtainToken("sourcing-buyer@example.com", "52998224725", "CPF", "BUYER");
+        }
+        if (supplierToken == null) {
+            supplierToken = obtainToken("sourcing-supplier@example.com", "11444777000161", "CNPJ", "SUPPLIER");
+        }
+    }
+
+    private String obtainToken(String email, String documentNumber, String documentType, String userType) throws Exception {
+        var register = new java.util.LinkedHashMap<String, Object>();
+        register.put("email", email);
+        register.put("password", "Strong@123");
+        register.put("firstName", "Test");
+        register.put("lastName", userType.toLowerCase());
+        register.put("displayName", "Test " + userType);
+        register.put("documentNumber", documentNumber);
+        register.put("documentType", documentType);
+        register.put("userType", userType);
+
+        var registerResult = mvc.perform(post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(register)))
+            .andReturn();
+
+        if (registerResult.getResponse().getStatus() == 201) {
+            return objectMapper.readTree(registerResult.getResponse().getContentAsString())
+                .get("accessToken").asText();
+        }
+
+        var login = new java.util.LinkedHashMap<String, Object>();
+        login.put("email", email);
+        login.put("password", "Strong@123");
+
+        var loginResp = mvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(login)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        return objectMapper.readTree(loginResp).get("accessToken").asText();
+    }
+
     @Test
     void health_is_ok() throws Exception {
         mvc.perform(get("/api/v1/health"))
@@ -72,6 +122,7 @@ class SourcingMvpControllerTest {
         createEvent("tenant-2", "org-2", "Quero a peça Y");
 
         mvc.perform(get("/api/v1/sourcing-events")
+                .header("Authorization", "Bearer " + buyerToken)
                 .accept(MediaTypes.HAL_JSON)
                 .param("tenantId", "tenant-1")
                 .param("page", "0")
@@ -93,6 +144,7 @@ class SourcingMvpControllerTest {
         String wanted = createEvent("tenant-1", "org-1", "Compro pneu 195/55 R15");
 
         mvc.perform(get("/api/v1/opportunities")
+                .header("Authorization", "Bearer " + supplierToken)
                 .accept(MediaTypes.HAL_JSON)
                 .param("tenantId", "tenant-1")
                 .param("supplierId", "supplier-1")
@@ -117,6 +169,7 @@ class SourcingMvpControllerTest {
         String wanted = createEvent("tenant-1", "org-1", "Compro pneu 195/55 R15");
 
         mvc.perform(get("/api/v1/opportunities/search")
+                .header("Authorization", "Bearer " + supplierToken)
                 .accept(MediaTypes.HAL_JSON)
                 .param("tenantId", "tenant-1")
                 .param("supplierId", "supplier-1")
@@ -146,6 +199,7 @@ class SourcingMvpControllerTest {
         offer.put("message", "Tenho em estoque");
 
         mvc.perform(post("/api/v1/sourcing-events/" + eventId + "/responses")
+                .header("Authorization", "Bearer " + supplierToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(offer)))
             .andExpect(status().isCreated())
@@ -153,7 +207,8 @@ class SourcingMvpControllerTest {
             .andExpect(jsonPath("$._links.responses.href").isString())
             .andExpect(jsonPath("$._links.accept.href").isString());
 
-        var responseList = mvc.perform(get("/api/v1/sourcing-events/" + eventId + "/responses"))
+        var responseList = mvc.perform(get("/api/v1/sourcing-events/" + eventId + "/responses")
+                .header("Authorization", "Bearer " + buyerToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].supplierId").value("supplier-1"))
             .andExpect(jsonPath("$[0].id").isString())
@@ -163,10 +218,12 @@ class SourcingMvpControllerTest {
 
         String responseId = objectMapper.readTree(responseList).get(0).get("id").asText();
 
-        mvc.perform(post("/api/v1/sourcing-events/" + eventId + "/responses/" + responseId + "/accept"))
+        mvc.perform(post("/api/v1/sourcing-events/" + eventId + "/responses/" + responseId + "/accept")
+                .header("Authorization", "Bearer " + buyerToken))
             .andExpect(status().isNoContent());
 
-        mvc.perform(get("/api/v1/sourcing-events/" + eventId))
+        mvc.perform(get("/api/v1/sourcing-events/" + eventId)
+                .header("Authorization", "Bearer " + buyerToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("AWARDED"));
     }
@@ -192,6 +249,7 @@ class SourcingMvpControllerTest {
         createEvent.put("validForHours", 24);
 
         mvc.perform(post("/api/v1/sourcing-events")
+                .header("Authorization", "Bearer " + buyerToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createEvent)))
             .andExpect(status().isBadRequest())

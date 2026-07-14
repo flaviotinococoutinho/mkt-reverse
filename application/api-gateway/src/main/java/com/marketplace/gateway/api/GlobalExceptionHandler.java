@@ -72,6 +72,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(mapper.status()).body(pd);
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAccessDenied(
+            org.springframework.security.access.AccessDeniedException ex,
+            HttpServletRequest req
+    ) {
+        var mapper = new ExceptionMapper(HttpStatus.FORBIDDEN, "FORBIDDEN");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(mapper.toProblem("Access denied", req));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handle(Exception ex, HttpServletRequest req) {
         var mapper = EXCEPTION_MAPPERS.getOrDefault(
@@ -79,11 +89,12 @@ public class GlobalExceptionHandler {
                 DEFAULT_MAPPER
         );
 
-        var message = (ex.getMessage() != null) 
-                ? ex.getMessage() 
-                : mapper.title();
+        var message = (ex.getMessage() != null)
+                ? ex.getMessage()
+                : mapper.status().getReasonPhrase();
 
-        return mapper.toProblem(message, req).toResponse();
+        return ResponseEntity.status(mapper.status())
+                .body(mapper.toProblem(message, req));
     }
 
     /**

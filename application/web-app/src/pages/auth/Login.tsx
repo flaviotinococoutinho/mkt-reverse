@@ -10,7 +10,7 @@ import axios from 'axios';
 import { formatBrazilPhone } from '../../lib/phone';
 import { getNextOnboardingPath, getRoleDashboardPath } from '../../lib/onboarding';
 import { getFriendlyAuthErrorMessage } from '../../lib/authErrorMessage';
-import { loginSchema, LoginFormData } from '../../lib/schemas/auth';
+import { loginSchema, type LoginFormData } from '../../lib/schemas/auth';
 import { useToast } from '../../components/ui/feedback';
 
 const AUTH_NOTICE_KEY = 'auth.notice';

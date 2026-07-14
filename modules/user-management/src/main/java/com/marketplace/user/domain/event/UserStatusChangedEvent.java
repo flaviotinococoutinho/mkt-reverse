@@ -130,6 +130,21 @@ public class UserStatusChangedEvent implements DomainEvent {
         }
     }
 
+    @Override
+    public String getEventType() {
+        return "UserStatusChangedEvent";
+    }
+
+    @Override
+    public String getEventVersion() {
+        return "1.0";
+    }
+
+    @Override
+    public Instant getOccurredAt() {
+        return occurredOn;
+    }
+
     /**
      * Gets the event payload for serialization
      */

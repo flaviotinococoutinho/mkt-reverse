@@ -72,18 +72,27 @@ export async function getCategoryFacets(): Promise<CategoryFacet[]> {
   return response.data;
 }
 
-// MCC Category codes with labels
+// Taxonomia curada (códigos MCC reais, ISO 18245).
+// Espelha MccCategory.java no backend: categorias proibidas pelo compliance
+// (medicamentos, imóveis, alimentos etc.) simplesmente não existem aqui —
+// proibir por ausência é mais barato que moderar por presença.
 export const MCC_CATEGORIES = [
-  { code: 174, label: 'Eletrônicos e Informática' },
-  { code: 275, label: 'Vestuário e Acessórios' },
-  { code: 553, label: 'Autos e Peças' },
-  { code: 521, label: 'Móveis e Decoração' },
-  { code: 571, label: 'Imóveis' },
-  { code: 501, label: 'Médicos e Farmacêuticos' },
-  { code: 581, label: 'Alimentos e Bebidas' },
-  { code: 504, label: 'Máquinas e Equipamentos' },
-  { code: 821, label: 'Serviços Profissionais' },
-  { code: 829, label: 'Outros Serviços' },
+  // Nicho 1 (kickoff): Colecionáveis
+  { code: 5937, label: 'Antiguidades' },
+  { code: 5945, label: 'Hobby, Brinquedos e Jogos' },
+  { code: 5942, label: 'Livros' },
+  { code: 5972, label: 'Selos e Moedas' },
+  // Nicho 2 (Fase 2): Moda circular / segunda mão
+  { code: 5931, label: 'Moda Circular e Segunda Mão' },
+  // Nicho 3 (Fase 3, restrito): Autopeças e hardware
+  { code: 5533, label: 'Autopeças e Acessórios' },
+  { code: 5065, label: 'Peças e Equipamentos Elétricos' },
+  { code: 5085, label: 'Suprimentos Industriais' },
+  { code: 5251, label: 'Ferragens' },
+  { code: 5732, label: 'Eletrônicos' },
+  { code: 7699, label: 'Oficinas de Reparo' },
+  { code: 7629, label: 'Reparo Elétrico' },
+  { code: 5999, label: 'Outros' },
 ];
 
 // Get label for MCC code

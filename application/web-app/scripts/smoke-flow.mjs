@@ -17,7 +17,7 @@ import { dirname } from 'node:path';
 
 const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:8081/api/v1';
 const includeAttributes = process.env.SMOKE_INCLUDE_ATTRIBUTES === '1';
-const smokeAuth = process.env.SMOKE_AUTH === '1';
+const smokeAuth = process.env.SMOKE_AUTH !== '0';
 const smokeAuthInvalid = process.env.SMOKE_AUTH_INVALID === '1';
 const smokeReportJson = process.env.SMOKE_REPORT_JSON === '1';
 const smokeReportPath = process.env.SMOKE_REPORT_PATH;
@@ -194,7 +194,7 @@ async function registerAndLogin({ role, phone, password, documentType, documentN
     body: loginPayload,
   });
 
-  const token = auth?.token;
+  const token = auth?.accessToken;
   assert(token, `Auth sem token para role=${role}`);
   return token;
 }

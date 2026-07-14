@@ -44,7 +44,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(register)))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.token").isString())
+            .andExpect(jsonPath("$.accessToken").isString())
             .andExpect(jsonPath("$.user.id").isString())
             .andExpect(jsonPath("$.user.role").value("buyer"));
 
@@ -56,7 +56,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(login)))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.token").isString())
+            .andExpect(jsonPath("$.accessToken").isString())
             .andExpect(jsonPath("$.user.email").value("buyer1@example.com"));
     }
 }

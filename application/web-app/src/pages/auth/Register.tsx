@@ -10,7 +10,7 @@ import axios from 'axios';
 import { formatBrazilPhone } from '../../lib/phone';
 import { resetOnboardingState } from '../../lib/onboarding';
 import { getFriendlyAuthErrorMessage } from '../../lib/authErrorMessage';
-import { registerSchemaSimple, RegisterFormData } from '../../lib/schemas/auth';
+import { registerSchemaSimple, type RegisterFormData } from '../../lib/schemas/auth';
 import { useToast } from '../../components/ui/feedback';
 
 function generateTestCpf(): string {

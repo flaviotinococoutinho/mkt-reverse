@@ -31,9 +31,6 @@ public interface SpringDataSourcingEventJpaRepository extends JpaRepository<Sour
     @Query("select e from SourcingEvent e where e.buyerContext.tenantId = :tenantId and e.buyerContext.organizationId = :orgId and e.status in (com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.PUBLISHED, com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.IN_PROGRESS, com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.NEGOTIATION)")
     List<SourcingEvent> findActiveByBuyer(@Param("tenantId") String tenantId, @Param("orgId") String orgId);
 
-    @Query("select e from SourcingEvent e where e.buyerContext.tenantId = :tenantId and e.buyerContext.organizationId = :orgId and e.status in (com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.PUBLISHED, com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.IN_PROGRESS, com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.NEGOTIATION)")
-    List<SourcingEvent> findActiveByBuyer(@Param("tenantId") String tenantId, @Param("orgId") String orgId);
-
     @Query("select e from SourcingEvent e where e.status = com.marketplace.sourcing.domain.valueobject.SourcingEventStatus.SUBMISSION_CLOSED and e.timeline.submissionDeadline <= :ref")
     List<SourcingEvent> findPendingEvaluation(@Param("ref") Instant reference);
 

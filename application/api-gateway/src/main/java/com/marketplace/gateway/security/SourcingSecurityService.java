@@ -29,7 +29,7 @@ public class SourcingSecurityService {
      */
     public boolean isEventOwner(String eventId, String userId) {
         return eventRepository.findById(eventId)
-                .map(event -> event.getBuyerId().equals(userId))
+                .map(event -> event.getBuyerContext().getContactId().equals(userId))
                 .orElse(false);
     }
 
@@ -59,7 +59,7 @@ public class SourcingSecurityService {
             return false;
         }
 
-        var buyerId = event.get().getBuyerId();
+        var buyerId = event.get().getBuyerContext().getContactId();
         var userId = auth.getName();
 
         // Buyer can access own events
@@ -67,9 +67,10 @@ public class SourcingSecurityService {
             return true;
         }
 
-        // Suppliers can access public events
-        var isPublic = "PUBLIC".equals(event.get().getVisibility());
-        return authorities.contains(ROLE_SUPPLIER) && isPublic;
+        // Suppliers can access open events (no invite list) or events they were invited to
+        var invited = event.get().getInvitedSupplierIds();
+        var isOpen = invited.isEmpty();
+        return authorities.contains(ROLE_SUPPLIER) && (isOpen || invited.contains(userId));
     }
 
     /**
@@ -92,7 +93,7 @@ public class SourcingSecurityService {
         // Get user's tenant from principal
         var principal = auth.getPrincipal();
         if (principal instanceof SourcingPrincipal sourcingPrincipal) {
-            return sourcingPrincipal.getTenantId().equals(tenantId);
+            return sourcingPrincipal.tenantId().equals(tenantId);
         }
 
         return false;

@@ -6,10 +6,10 @@ import { AppHeader } from '../../components/layout/AppHeader';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { sourcingService } from '../../services/sourcingService';
 import type { SourcingEventView } from '../../services/sourcingService';
-import { Plus, FileText, Search, AlertCircle } from 'lucide-react';
+import { Plus, Search, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import { getFriendlyHttpErrorMessage } from '../../lib/problemDetails';
-import { Loading, ListSkeleton, NoData, NoResults } from '../../components/ui/feedback';
+import { ListSkeleton, NoData, NoResults } from '../../components/ui/feedback';
 import { useToast } from '../../components/ui/feedback';
 import {
   parseBuyerDashboardFilters,

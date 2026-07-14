@@ -5,19 +5,34 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Added
-- `features/auth/` — package-by-feature structure for authentication module
-
-### Removed
-- Redundant documentation files (FINAL_DELIVERY, PROJECT_FINAL_DELIVERY, IMPLEMENTATION_STATUS, etc.)
-- Obsolete workflow and planning docs
-- Agent config directories (.Jules, .agents, .openclaw, test.py)
+- `docs/product/business-model.md` — modelo de negócio ajustado (propostas seladas, escrow via PSP, nichos sequenciados, monetização por sucesso, arquitetura contratual em camadas, fases com gates)
+- `docs/compliance/guardrails.md` — registro de riscos regulatórios (CDC, BACEN, LGPD, tributário, PLD/FT) e invariantes/limites de kickoff por domínio
+- `@EnableMethodSecurity` no api-gateway — somente o dono do evento aceita propostas (`SourcingSecurityService.isEventOwner`); usuário autenticado torna-se o `buyerContactId` do evento
+- Handler dedicado de `AccessDeniedException` (403 Problem Details)
 
 ### Changed
-- Stack locked: **MVC + JPA** (NOT WebFlux+R2DBC) — see STACK.md
-- Docker Compose consolidated: 4 files → 1 with profiles
+- **Taxonomia MCC reescrita** com códigos reais ISO 18245 (`MccCategory` como enum), organizada por nicho/fase e funcionando como denylist estrutural — categorias proibidas (medicamentos, imóveis etc.) removidas; frontend (`MCC_CATEGORIES`) e facetas SQL espelhados
+- UI de criação de solicitação restrita a **RFQ (propostas seladas)** — leilão reverso aberto removido do produto conforme modelo ajustado
+- Smoke E2E autentica por padrão (`SMOKE_AUTH != '0'`) e usa `accessToken`
+- README e ARCHITECTURE reescritos para refletir o estado real do código e o modelo ajustado; STACK.md alinhado (GraphQL em uso; paginação page/size)
+- `.env.example` enxuto (sem Kafka/Elasticsearch/MinIO/blockchain/ERP/e-mail) com regras de escrow via PSP
+
+### Removed
+- Módulos órfãos sem uso: `auction-engine`, `blockchain-integration`, `erp-integration`, `analytics-service`, `contract-management`, `supplier-management`, `opportunity-management`, `proposal-management`, `ui-configuration-service`, `opportunity-service`
+- Diretórios de arquitetura abandonada: `bff-gateway/`, `features/`, `frontend/`, `shared/src`
+- Fluxo de alertas quebrado no sourcing (`AlertService`, `OpportunityAlert`, `AlertRepository`, `AlertPersistenceAdapter` — referenciava `AlertId` inexistente) e `SourcingEventEntity` órfão
+- Pacote `validation` morto no sourcing (importava módulo sem dependência declarada)
+- `RabbitMqJmsConfiguration` legado (JMS, usado só pelo módulo abandonado `opportunity-management`)
+- Dependências/props sem uso: web3j (blockchain), deeplearning4j; serviço mailhog do compose (sem e-mail no MVP); arquivos soltos (`teste.py`, `migrate-auth.sh`, `project_structure.txt`, `PROJECT_STATUS.md` obsoleto)
+- Componentes frontend quebrados e sem uso (`useFormWithValidation`, `FormComponents`)
 
 ### Fixed
-- (none yet)
+- Build do reator inteiro compila e testes passam (antes: `shared-infrastructure`, `user-management`, `sourcing-management` e `api-gateway` não compilavam por drift acumulado)
+- Eventos de domínio do usuário aderentes ao contrato `DomainEvent` (getEventType/getEventVersion/getOccurredAt + versão do agregado)
+- Método duplicado `findActiveByBuyer` no repositório JPA de sourcing
+- `application-test.yml` com chave `flyway` triplicada (contexto Spring não subia)
+- Fluxo de busca (SearchController/PostgresOpportunitySearchClient) alinhado a `PageResult` e à view real; funções SQL chamadas por parâmetros posicionais corretos e com `tenantId`
+- Frontend: `npm run lint`, `npm run build` e `vitest` verdes (imports type-only, módulos inexistentes, tipos do formulário de criação)
 
 ---
 

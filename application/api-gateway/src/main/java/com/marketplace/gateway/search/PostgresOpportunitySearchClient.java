@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Component
 public class PostgresOpportunitySearchClient implements OpportunitySearchClient {
@@ -24,19 +23,7 @@ public class PostgresOpportunitySearchClient implements OpportunitySearchClient 
 
     @Override
     public PageResult<SourcingMvpController.SourcingEventView> search(OpportunitySearchRequest request) {
-        String sql = """
-            SELECT * FROM search_opportunities(
-                tenantId => ?,
-                p_query => ?,
-                p_mcc_category_code => ?,
-                p_visibility => ?,
-                p_status => ?,
-                p_sort_by => ?,
-                p_sort_dir => ?,
-                p_page => ?,
-                p_size => ?
-            )
-            """;
+        String sql = "SELECT * FROM search_opportunities(?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try {
             List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql,
@@ -44,7 +31,7 @@ public class PostgresOpportunitySearchClient implements OpportunitySearchClient 
                     request.query(),
                     request.mccCategoryCode(),
                     request.visibility(),
-                    request.status(),
+                    "PUBLISHED",
                     request.sortBy(),
                     request.sortDir(),
                     request.page(),
@@ -54,18 +41,10 @@ public class PostgresOpportunitySearchClient implements OpportunitySearchClient 
             long total = rows.isEmpty() ? 0 : ((Number) rows.get(0).get("total_count")).longValue();
 
             List<SourcingMvpController.SourcingEventView> items = rows.stream()
-                    .map(this::mapToSourcingEventView)
+                    .map(row -> mapToSourcingEventView(row, request.tenantId()))
                     .toList();
 
-            int totalPages = (int) Math.ceil((double) total / request.size());
-
-            return new PageResult<>(
-                    items,
-                    request.page(),
-                    request.size(),
-                    total,
-                    totalPages
-            );
+            return new PageResult<>(items, request.page(), request.size(), total);
         } catch (Exception e) {
             log.warn("Full-text search function not available, falling back to basic query", e);
             return fallbackSearch(request);
@@ -74,7 +53,7 @@ public class PostgresOpportunitySearchClient implements OpportunitySearchClient 
 
     private PageResult<SourcingMvpController.SourcingEventView> fallbackSearch(OpportunitySearchRequest request) {
         String sql = """
-            SELECT id, title, description, product_name, status, mcc_category_code, visibility, published_at
+            SELECT id, title, description, event_type, status, tenant_id, buyer_organization_id
             FROM src_sourcing_events
             WHERE tenant_id = ?
               AND status = 'PUBLISHED'
@@ -96,31 +75,23 @@ public class PostgresOpportunitySearchClient implements OpportunitySearchClient 
         );
 
         List<SourcingMvpController.SourcingEventView> items = rows.stream()
-                .map(this::mapToSourcingEventView)
+                .map(row -> mapToSourcingEventView(row, request.tenantId()))
                 .toList();
 
-        int totalPages = (int) Math.ceil((double) total / request.size());
-
-        return new PageResult<>(
-                items,
-                request.page(),
-                request.size(),
-                total,
-                totalPages
-        );
+        return new PageResult<>(items, request.page(), request.size(), total != null ? total : 0);
     }
 
     @Override
-    public List<Map<String, String>> autocomplete(String prefix, int limit) {
+    public List<Map<String, String>> autocomplete(String tenantId, String prefix, int limit) {
         try {
             return jdbcTemplate.query(
                     "SELECT * FROM search_opportunities_autocomplete(?, ?, ?)",
                     (rs, rowNum) -> Map.of(
                             "id", rs.getString("id"),
                             "title", rs.getString("title"),
-                            "productName", rs.getString("product_name")
+                            "productName", rs.getString("product_name") != null ? rs.getString("product_name") : ""
                     ),
-                    null, prefix + "%", limit
+                    tenantId, prefix, limit
             );
         } catch (Exception e) {
             log.warn("Autocomplete function not available", e);
@@ -129,7 +100,7 @@ public class PostgresOpportunitySearchClient implements OpportunitySearchClient 
     }
 
     @Override
-    public List<Map<String, Object>> getCategoryFacets() {
+    public List<Map<String, Object>> getCategoryFacets(String tenantId) {
         try {
             return jdbcTemplate.query(
                     "SELECT * FROM get_opportunity_category_facets(?)",
@@ -138,7 +109,7 @@ public class PostgresOpportunitySearchClient implements OpportunitySearchClient 
                             "count", rs.getLong("count"),
                             "label", rs.getString("label")
                     ),
-                    null
+                    tenantId
             );
         } catch (Exception e) {
             log.warn("Category facets function not available", e);
@@ -146,17 +117,15 @@ public class PostgresOpportunitySearchClient implements OpportunitySearchClient 
         }
     }
 
-    private SourcingMvpController.SourcingEventView mapToSourcingEventView(Map<String, Object> row) {
+    private SourcingMvpController.SourcingEventView mapToSourcingEventView(Map<String, Object> row, String tenantId) {
         return new SourcingMvpController.SourcingEventView(
                 row.get("id").toString(),
+                (String) row.get("status"),
                 (String) row.get("title"),
                 (String) row.get("description"),
-                (String) row.get("product_name"),
-                null, null, null, null,
-                (String) row.get("status"),
-                row.get("mcc_category_code") != null ? ((Number) row.get("mcc_category_code")).intValue() : null,
-                (String) row.get("visibility"),
-                row.get("published_at").toString(),
+                row.get("event_type") != null ? (String) row.get("event_type") : null,
+                row.get("tenant_id") != null ? (String) row.get("tenant_id") : tenantId,
+                row.get("buyer_organization_id") != null ? row.get("buyer_organization_id").toString() : null,
                 null
         );
     }

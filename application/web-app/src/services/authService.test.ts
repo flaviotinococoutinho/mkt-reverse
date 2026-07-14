@@ -10,7 +10,7 @@ vi.mock('./api', () => ({
   getAccessToken: vi.fn(),
 }));
 
-import api, { setTokens, clearTokens, setUser } from './api';
+import api, { setTokens } from './api';
 import { authService } from './authService';
 
 function createStorageMock() {

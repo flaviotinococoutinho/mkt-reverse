@@ -80,7 +80,7 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && originalRequest && !originalRequest.url.includes('/auth/')) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest.url?.includes('/auth/')) {
       if (!isRefreshing) {
         isRefreshing = true;
         const refreshToken = getRefreshToken();

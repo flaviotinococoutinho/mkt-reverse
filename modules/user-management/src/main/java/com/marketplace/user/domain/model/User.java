@@ -171,7 +171,8 @@ public class User extends AggregateRoot<UserId> {
             user.id.getValue().toString(),
             user.email.getValue(),
             user.userType,
-            user.personalInfo.getDisplayName()
+            user.personalInfo.getDisplayName(),
+            user.getVersion()
         ));
         
         user.markAsCreated();
@@ -191,7 +192,8 @@ public class User extends AggregateRoot<UserId> {
         addDomainEvent(new UserProfileUpdatedEvent(
             this.id.getValue().toString(),
             oldPersonalInfo,
-            newPersonalInfo
+            newPersonalInfo,
+            getVersion()
         ));
         
         markAsUpdated();
@@ -223,11 +225,12 @@ public class User extends AggregateRoot<UserId> {
         
         UserStatus oldStatus = this.status;
         this.status = UserStatus.ACTIVE;
-        
+
         addDomainEvent(new UserStatusChangedEvent(
             this.id.getValue().toString(),
             oldStatus,
-            this.status
+            this.status,
+            getVersion()
         ));
         
         markAsUpdated();
@@ -243,7 +246,8 @@ public class User extends AggregateRoot<UserId> {
             this.id.getValue().toString(),
             oldStatus,
             this.status,
-            reason
+            reason,
+            getVersion()
         ));
         
         markAsUpdated();
@@ -254,11 +258,12 @@ public class User extends AggregateRoot<UserId> {
         
         UserStatus oldStatus = this.status;
         this.status = UserStatus.INACTIVE;
-        
+
         addDomainEvent(new UserStatusChangedEvent(
             this.id.getValue().toString(),
             oldStatus,
-            this.status
+            this.status,
+            getVersion()
         ));
         
         markAsUpdated();
