@@ -80,7 +80,8 @@
         <module>modules/sourcing-management</module>
         <module>modules/catalog-management</module>
 
-        <!-- Roadmap Fase 1 (escrow via PSP + notificações críticas) -->
+        <!-- Fase 1 (contrato & liquidação; escrow via PSP + notificações críticas) -->
+        <module>modules/agreement-management</module>
         <module>modules/notification-service</module>
         <module>modules/payment-integration</module>
 

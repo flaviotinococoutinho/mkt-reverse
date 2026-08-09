@@ -4,10 +4,12 @@ spring:
     username: marketplace_user
     password: marketplace_pass
 
-  # Local dev uses Hibernate ddl-auto for the MVP slice; Flyway should not block startup
-  # when the schema is already non-empty (e.g., reused Docker volume).
+  # No MVP o schema é gerido pelo Hibernate (ddl-auto: update); Flyway fica
+  # desligado no profile local/CI para não competir com o ddl-auto em banco
+  # fresh. Quando o Flyway virar a autoridade de schema (pós-MVP), religar
+  # aqui e congelar o ddl-auto em validate.
   flyway:
-    baseline-on-migrate: true
+    enabled: false
 
   jpa:
     hibernate:

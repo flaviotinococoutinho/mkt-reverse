@@ -5,6 +5,11 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Added
+- **Contexto `agreement` (contrato & liquidação)** — novo módulo `agreement-management`: agregado `Agreement` com máquina de estados (PENDING_FUNDING → FUNDED → SHIPPED → DELIVERED → RELEASED | DISPUTED → RESOLVED_*, + LAPSED/SELLER_DEFAULTED/CANCELLED), snapshot imutável do aceite com hash SHA-256, porta `EscrowGateway` (mock de dev; PSP real é pré-condição do gate da Fase 1), teto de ticket, janelas de funding/envio/inspeção e scheduler de lapso/auto-liberação
+- `AcceptanceCoordinator` — aceite premia o evento e abre o contrato em uma transação (rollback integral acima do teto do escrow); header `X-Agreement-Id` na resposta do aceite (REST e GraphQL)
+- API `/api/v1/agreements` — fund (buyer), ship (seller, rastreio obrigatório), deliver, release (buyer), dispute (buyer, janela de 72h), resolve (admin/ODR); visibilidade restrita às partes
+- Guardrails de proposta selada no sourcing: máximo de 7 propostas por intenção, 1 por vendedor, validade default de 72h (`valid_until`) com rejeição de aceite expirado
+- Configuração `marketplace.escrow.*` (mock, teto, janelas) + variáveis no `.env.example`; tabela `agr_agreements` no init.sql
 - `docs/product/business-model.md` — modelo de negócio ajustado (propostas seladas, escrow via PSP, nichos sequenciados, monetização por sucesso, arquitetura contratual em camadas, fases com gates)
 - `docs/compliance/guardrails.md` — registro de riscos regulatórios (CDC, BACEN, LGPD, tributário, PLD/FT) e invariantes/limites de kickoff por domínio
 - `@EnableMethodSecurity` no api-gateway — somente o dono do evento aceita propostas (`SourcingSecurityService.isEventOwner`); usuário autenticado torna-se o `buyerContactId` do evento

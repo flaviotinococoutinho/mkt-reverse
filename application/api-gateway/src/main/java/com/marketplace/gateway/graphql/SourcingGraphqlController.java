@@ -25,9 +25,14 @@ import java.util.UUID;
 public class SourcingGraphqlController {
 
     private final SourcingEventApplicationService service;
+    private final com.marketplace.gateway.api.AcceptanceCoordinator acceptanceCoordinator;
 
-    public SourcingGraphqlController(SourcingEventApplicationService service) {
+    public SourcingGraphqlController(
+        SourcingEventApplicationService service,
+        com.marketplace.gateway.api.AcceptanceCoordinator acceptanceCoordinator
+    ) {
         this.service = service;
+        this.acceptanceCoordinator = acceptanceCoordinator;
     }
 
     // --- Queries ---
@@ -151,7 +156,7 @@ public class SourcingGraphqlController {
 
     @MutationMapping
     public boolean acceptResponse(@Argument String eventId, @Argument String responseId) {
-        service.acceptResponse(eventId, responseId, null);
+        acceptanceCoordinator.acceptAndOpenAgreement(eventId, responseId, null);
         return true;
     }
 

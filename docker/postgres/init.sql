@@ -102,6 +102,8 @@ CREATE TABLE IF NOT EXISTS src_supplier_responses (
     
     status VARCHAR(30) DEFAULT 'SUBMITTED',
     submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- Proposta selada é oferta vinculante com prazo (default 72h)
+    valid_until TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     version BIGINT DEFAULT 0
@@ -110,6 +112,44 @@ CREATE TABLE IF NOT EXISTS src_supplier_responses (
 CREATE INDEX idx_responses_event ON src_supplier_responses(sourcing_event_id);
 CREATE INDEX idx_responses_supplier ON src_supplier_responses(supplier_id);
 CREATE UNIQUE INDEX idx_responses_unique ON src_supplier_responses(sourcing_event_id, supplier_id);
+
+-- ----------------------------------------------------------
+-- Agreements Table (contrato & liquidação — contexto agreement)
+-- O escrow vive no PSP autorizado; aqui só referências e gatilhos.
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS agr_agreements (
+    id BIGINT PRIMARY KEY,
+    tenant_id VARCHAR(50) NOT NULL,
+    event_id VARCHAR(36) NOT NULL,
+    response_id VARCHAR(36) NOT NULL,
+    buyer_id VARCHAR(64) NOT NULL,
+    supplier_id VARCHAR(64) NOT NULL,
+    price_cents BIGINT NOT NULL,
+    currency VARCHAR(3) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    snapshot_hash VARCHAR(64) NOT NULL,
+    accepted_at TIMESTAMP NOT NULL,
+    funding_deadline TIMESTAMP NOT NULL,
+    funded_at TIMESTAMP,
+    shipping_deadline TIMESTAMP,
+    shipped_at TIMESTAMP,
+    tracking_code VARCHAR(100),
+    delivered_at TIMESTAMP,
+    inspection_deadline TIMESTAMP,
+    closed_at TIMESTAMP,
+    escrow_reference VARCHAR(100),
+    dispute_reason TEXT,
+    resolution_note TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    version BIGINT DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_agr_event ON agr_agreements(event_id);
+CREATE INDEX IF NOT EXISTS idx_agr_status ON agr_agreements(status);
+CREATE INDEX IF NOT EXISTS idx_agr_buyer ON agr_agreements(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_agr_supplier ON agr_agreements(supplier_id);
 
 -- ----------------------------------------------------------
 -- Sys Config Table

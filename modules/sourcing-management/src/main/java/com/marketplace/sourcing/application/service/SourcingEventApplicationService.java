@@ -195,6 +195,13 @@ public class SourcingEventApplicationService implements SourcingEventUseCases {
         
         event.validateBidder(supplierOrganizationId);
 
+        // Kickoff guardrail: one sealed proposal per supplier per intent.
+        boolean alreadyProposed = supplierResponseRepository.findByEventId(eventId).stream()
+            .anyMatch(r -> r.getSupplierId().equals(supplierId != null ? supplierId.trim() : supplierId));
+        if (alreadyProposed) {
+            throw new IllegalStateException("Supplier already submitted a proposal for this intent");
+        }
+
         // Delegate logic to domain
         event.validateProposalAttributes(attributes);
 

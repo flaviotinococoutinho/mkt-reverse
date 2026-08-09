@@ -125,6 +125,9 @@ gatilhos — nunca custódia.
 | Schema como contrato | `CategoryAttributeSchema.validate()` aplicado na intenção e na proposta (chaves permitidas, tipos, obrigatórias) |
 | Propostas seladas | Supplier não tem endpoint para ver propostas concorrentes; UI oferece apenas RFQ (leilão aberto removido do produto) |
 | Ownership do aceite | `@PreAuthorize` + `SourcingSecurityService.isEventOwner` — o usuário autenticado é o `buyerContactId` do evento |
-| Sem custódia | `payment-integration` modela apenas `PaymentConnector`/`EscrowAgreement` (gatilhos); `.env.example` documenta a regra e o teto de ticket |
+| Sem custódia | Porta `EscrowGateway` no contexto `agreement` — só referências e gatilhos; `MockEscrowGateway` (dev) deve ser trocado por adaptador de PSP autorizado antes da Fase 1; `payment-integration` modela conectores |
+| Contrato & liquidação | `Agreement`: snapshot imutável + SHA-256 no aceite; eficácia só com funding (48h); rastreio obrigatório no envio; janela de inspeção de 72h; teto de ticket (R$ 3.000) com rollback do aceite acima dele; scheduler de lapso/default/auto-liberação |
+| Propostas seladas (limites) | Máx. 7 propostas por intenção (`SourcingEvent.MAX_SEALED_PROPOSALS`); 1 proposta por vendedor por intenção; validade default de 72h (`valid_until`) — proposta expirada não pode ser aceita |
+| ODR | `/agreements/{id}/dispute` só pelo comprador dentro da janela; `/resolve` só ADMIN; decisão executa o escrow sem fechar a via judicial |
 | Trilha probatória | Transactional Outbox (`event_outbox`) com eventos de domínio versionados por agregado |
 | Identidade verificada | Registro exige CPF/CNPJ com validação de dígitos; roles BUYER/SUPPLIER separadas |

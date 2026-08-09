@@ -59,19 +59,34 @@ O sistema é um **monólito modular**: um único deployable (`application/api-ga
 #### `modules/notification-service` — Notificações críticas
 - `Notification` com canais, prioridade e tentativas de entrega. No kickoff: sem e-mail; WebSocket/push apenas para eventos críticos (proposta recebida, aceite, funding, entrega, disputa). Latência de notificação é latência do modelo — cada evento crítico terá SLA monitorado.
 
-### Contexto planejado: `agreement` (Fase 1)
+### `modules/agreement-management` — Contrato & Liquidação (implementado)
 
-A máquina de estados do contrato, espelhada 1:1 em eventos de domínio:
+O aceite de uma proposta passa pelo `AcceptanceCoordinator` (api-gateway), que em uma única
+transação premia o evento **e** abre o `Agreement` com snapshot imutável (JSON canônico da
+proposta + especificação + termos, com hash SHA-256). Se o ticket exceder o teto do escrow, o
+aceite inteiro sofre rollback. A máquina de estados, espelhada em eventos de domínio
+(`AgreementStatusChangedEvent`):
 
 ```
-ProposalAccepted ──► EscrowFunded ──► Shipped ──► Delivered ──► InspectionWindow(72h) ──► Released
-      │(snapshot          │(eficácia;                                       │
-      │ imutável)         │ endereço revelado)                              └──► Disputed ──► Resolved(refund|partial|release)
+PENDING_FUNDING ──► FUNDED ──► SHIPPED ──► DELIVERED ──► (janela 72h) ──► RELEASED
+      │(snapshot        │(eficácia;                          │
+      │ imutável)       │ prazo de envio)                    └──► DISPUTED ──► RESOLVED_{REFUNDED|PARTIAL|RELEASED}
       │
-      ├──► Lapsed          (sem funding em 24–48h; resolve-se sem penalidade dura)
-      ├──► SellerDefault   (não enviou no prazo → reembolso integral + multa)
-      └──► Cancelled       (mútuo acordo antes do envio)
+      ├──► LAPSED            (sem funding em 48h — scheduler)
+      ├──► SELLER_DEFAULTED  (não enviou no prazo → reembolso — scheduler)
+      └──► CANCELLED         (mútuo acordo antes do funding)
 ```
+
+Peças do contexto:
+- `Agreement` (aggregate root) — transições com guardas; teto de ticket na abertura.
+- `EscrowGateway` (porta) — o escrow vive no PSP autorizado; `MockEscrowGateway` simula o PSP
+  em dev/Fase 0 e **deve** ser substituído por adaptador real antes de dinheiro de verdade
+  (`marketplace.escrow.mock=false`).
+- `AgreementLifecycleScheduler` — lapso de funding, seller default e auto-liberação pós-janela
+  (ShedLock para exclusão mútua).
+- API: `/api/v1/agreements/{id}` + `/fund` (buyer), `/ship` (seller, rastreio obrigatório),
+  `/deliver`, `/release` (buyer), `/dispute` (buyer, dentro da janela), `/resolve` (admin/ODR).
+  Visibilidade restrita às partes.
 
 Invariantes:
 - O aceite gera **snapshot imutável** (proposta + versão do schema + termos, com hash e carimbo de tempo) — o outbox transacional evolui para essa função probatória.

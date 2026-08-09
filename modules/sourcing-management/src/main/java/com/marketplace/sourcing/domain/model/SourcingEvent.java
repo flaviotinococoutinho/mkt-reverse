@@ -290,9 +290,19 @@ public class SourcingEvent extends AggregateRoot<SourcingEventId> {
         markStatusChange(reference);
     }
 
+    /**
+     * Kickoff guardrail: sealed proposals per intent are capped — scarcity
+     * preserves the value of proposing and reduces spam (business model §3).
+     */
+    public static final int MAX_SEALED_PROPOSALS = 7;
+
     public void registerResponse() {
         if (!status.acceptsResponses()) {
             throw new IllegalStateException("Event is not accepting responses");
+        }
+        if (responsesCount >= MAX_SEALED_PROPOSALS) {
+            throw new IllegalStateException(
+                "Intent already received the maximum of " + MAX_SEALED_PROPOSALS + " sealed proposals");
         }
         this.responsesCount++;
         if (settings.shouldAutoExtend(responsesCount) && timeline.canExtendSubmission(Duration.ofMinutes(settings.getAutoExtendMinutes()))) {
