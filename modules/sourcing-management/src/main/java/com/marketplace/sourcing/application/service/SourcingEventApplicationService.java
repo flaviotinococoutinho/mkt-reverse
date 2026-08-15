@@ -5,6 +5,8 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.marketplace.shared.domain.model.AggregateRoot;
+import com.marketplace.shared.events.DomainEventPublisher;
 import com.marketplace.shared.id.IdGenerator;
 import com.marketplace.shared.paging.PageResult;
 import com.marketplace.shared.valueobject.CurrencyCode;
@@ -38,17 +40,31 @@ public class SourcingEventApplicationService implements SourcingEventUseCases {
     private final SupplierResponseRepository supplierResponseRepository;
     private final com.marketplace.sourcing.domain.repository.OpportunitySearchRepository opportunitySearchRepository;
     private final IdGenerator idGenerator;
+    private final DomainEventPublisher domainEventPublisher;
 
     public SourcingEventApplicationService(
         SourcingEventRepository sourcingEventRepository,
         SupplierResponseRepository supplierResponseRepository,
         com.marketplace.sourcing.domain.repository.OpportunitySearchRepository opportunitySearchRepository,
-        IdGenerator idGenerator
+        IdGenerator idGenerator,
+        DomainEventPublisher domainEventPublisher
     ) {
         this.sourcingEventRepository = sourcingEventRepository;
         this.supplierResponseRepository = supplierResponseRepository;
         this.opportunitySearchRepository = opportunitySearchRepository;
         this.idGenerator = idGenerator;
+        this.domainEventPublisher = domainEventPublisher;
+    }
+
+    /**
+     * Publishes and clears the aggregate's recorded domain events. MUST be
+     * called after every save — the transactional outbox only becomes the
+     * probative trail (and search indexing / notifications only fire) when
+     * the first link of the chain actually runs.
+     */
+    private void publishEvents(AggregateRoot<?> aggregate) {
+        domainEventPublisher.publishAll(aggregate.getDomainEvents());
+        aggregate.clearDomainEvents();
     }
 
     @Override
@@ -103,6 +119,7 @@ public class SourcingEventApplicationService implements SourcingEventUseCases {
         event.publish(Instant.now());
 
         sourcingEventRepository.save(event);
+        publishEvents(event);
         return event.getId();
     }
 
@@ -122,6 +139,7 @@ public class SourcingEventApplicationService implements SourcingEventUseCases {
         SourcingEvent event = getEvent(eventId, tenantId);
         event.updateDetails(title, description, null);
         sourcingEventRepository.save(event);
+        publishEvents(event);
     }
 
     @Override
@@ -219,8 +237,10 @@ public class SourcingEventApplicationService implements SourcingEventUseCases {
         );
 
         supplierResponseRepository.save(response);
+        publishEvents(response);
         event.registerResponse();
         sourcingEventRepository.save(event);
+        publishEvents(event);
 
         return response.getId();
     }
@@ -249,8 +269,22 @@ public class SourcingEventApplicationService implements SourcingEventUseCases {
 
         response.accept(Instant.now());
         supplierResponseRepository.save(response);
+        publishEvents(response);
+
+        // Sealed-proposal losers are rejected explicitly: the counterpart of
+        // "sua proposta foi aceita" is telling the others their proposal lost,
+        // instead of leaving them waiting forever.
+        for (SupplierResponse other : supplierResponseRepository.findByEventId(eventId)) {
+            if (!other.getId().equals(response.getId())
+                && other.getStatus() == com.marketplace.sourcing.domain.valueobject.SupplierResponseStatus.SUBMITTED) {
+                other.reject(Instant.now());
+                supplierResponseRepository.save(other);
+                publishEvents(other);
+            }
+        }
 
         event.award(response.getSupplierId(), response.getOfferAmount(), Instant.now());
         sourcingEventRepository.save(event);
+        publishEvents(event);
     }
 }
