@@ -142,8 +142,7 @@ mkt-reverse/
 │   ├── sourcing-management/        # CORE — Intenção (SourcingEvent) → Propostas seladas → Aceite
 │   ├── catalog-management/         # CORE — Taxonomia e definição de atributos
 │   ├── agreement-management/       # CORE — Contrato & liquidação (máquina de estados + escrow via porta PSP)
-│   ├── notification-service/       # FASE 1 — Notificações críticas (WebSocket/push)
-│   └── payment-integration/        # FASE 1 — Conectores de PSP (a plataforma NUNCA custodia)
+│   └── notification-service/       # CORE — Notificações do ciclo financeiro (feed in-app; WebSocket é evolução)
 ├── application/
 │   ├── api-gateway/               # CORE — Monólito modular (REST + GraphQL + security)
 │   └── web-app/                   # CORE — React + Vite + TypeScript
@@ -161,9 +160,12 @@ mkt-reverse/
 
 - [STACK.md](STACK.md) — decisões de tecnologia (travadas)
 - [ARCHITECTURE.md](ARCHITECTURE.md) — bounded contexts, fluxos e máquina de estados do contrato
+- [docs/product/identity.md](docs/product/identity.md) — identidade, diferencial e anti-escopo
 - [docs/product/vision.md](docs/product/vision.md) — visão do produto e JTBD
 - [docs/product/business-model.md](docs/product/business-model.md) — modelo de negócio ajustado (mecânica, monetização, fases com gates, arquitetura contratual)
 - [docs/compliance/guardrails.md](docs/compliance/guardrails.md) — riscos regulatórios, invariantes por domínio e limites de kickoff
+- [docs/product/next-fronts.md](docs/product/next-fronts.md) — próximas frentes priorizadas (pós-P0)
+- [docs/product/pm-review.md](docs/product/pm-review.md) — auditoria técnica de PM (2026-08-09)
 - [CHANGELOG.md](CHANGELOG.md) — histórico de mudanças
 
 ## 🔒 Segurança & Compliance
@@ -171,7 +173,8 @@ mkt-reverse/
 - **JWT** (access + refresh) com roles (`BUYER`, `SUPPLIER`, `ADMIN`); `@EnableMethodSecurity` ativo — só o dono do evento aceita propostas.
 - **LGPD**: minimização por finalidade; dados de intenção de compra só saem agregados/anonimizados (e somente após política aprovada).
 - **Taxonomia como denylist**: categorias proibidas não existem em `MccCategory` — validação dura no backend e lista espelhada no frontend.
-- **BACEN**: nenhum fluxo custodia valores; `payment-integration` modela apenas conectores de PSP e gatilhos de liberação.
+- **BACEN**: nenhum fluxo custodia valores; a porta `EscrowGateway` (contexto `agreement`) comanda apenas gatilhos de liberação no PSP autorizado, com idempotência por operação.
+- **Guarda de produção**: em profile `prod` o boot falha com JWT secret default ou com o mock de escrow habilitado sem opt-in explícito de Fase 0.
 - Detalhes e tabela de riscos: [docs/compliance/guardrails.md](docs/compliance/guardrails.md).
 
 ## 🧪 Testes
@@ -203,12 +206,21 @@ npm run smoke:api   # exige API rodando
 - **Gate:** ≥60% das intenções com ≥3 propostas em 48h; ≥25% terminando em aceite
 
 ### Fase 1 — Escrow terceirizado (MVP transacional)
+
+> **Nota de honestidade:** os itens marcados abaixo estão prontos em domínio,
+> API e eventing — mas a fase **não habilita dinheiro real** até o adaptador de
+> PSP e a UI do contrato existirem (ver [next-fronts.md](docs/product/next-fronts.md)).
+
 - [x] Contexto `agreement`: aceite forma o contrato (snapshot imutável + hash) e abre o fluxo fund → ship → deliver → release | dispute → resolve (ver ARCHITECTURE.md)
-- [x] Teto de ticket (R$ 3.000), janelas de funding (48h), envio (7d) e inspeção (72h) com scheduler de lapso/auto-liberação
-- [x] Porta `EscrowGateway` — o dinheiro nunca transita na plataforma
-- [ ] **Adaptador real de PSP autorizado (Pix/cartão)** — hoje há um mock de desenvolvimento; substituí-lo é pré-condição do gate
-- [ ] ODR humana operando as disputas; UI do fluxo de contrato no web-app
-- [ ] Notificações críticas via WebSocket — `notification-service`
+- [x] Teto de ticket (R$ 3.000), janelas de funding (48h), envio (7d), entrega (15d) e inspeção (72h) com scheduler por contrato (lapso, default, não-entrega, auto-liberação)
+- [x] Porta `EscrowGateway` idempotente — o dinheiro nunca transita na plataforma
+- [x] Eventing operante: outbox probatório + notificações in-app do ciclo financeiro (`/api/v1/notifications`)
+- [x] Autorização fechada nas duas superfícies (REST e GraphQL): dono aceita, dono vê propostas, vendedor não se passa por outro
+- [ ] **Adaptador real de PSP autorizado (Pix/cartão)** — funding assíncrono via webhook; pré-condição do gate (Frente 3)
+- [ ] UI do fluxo de contrato no web-app — capturar `X-Agreement-Id` e substituir o checklist WhatsApp (Frente 1)
+- [ ] Verificação de identidade real + consentimento LGPD no registro (Frente 2)
+- [ ] ODR humana com prazos operando as disputas (Frente 4)
+- [ ] WebSocket/push substituindo polling nos eventos críticos (Frente 5)
 - **Gate:** disputa <3% do GMV; custo de disputa <25% do take médio
 
 ### Fase 2 — Segunda vertical + confiança paga

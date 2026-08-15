@@ -119,15 +119,21 @@ gatilhos — nunca custódia.
 
 ## 3. Como o código reflete estes guardrails hoje
 
+> Regra desta tabela: afirmar somente o que o código entrega **hoje**. O que é
+> intenção fica marcado como **parcial/planejado** com a frente correspondente
+> em [../product/next-fronts.md](../product/next-fronts.md) — a tabela otimista
+> engana primeiro o próprio mantenedor.
+
 | Guardrail | Implementação atual |
 |---|---|
 | Denylist estrutural | `MccCategory` (enum com códigos ISO 18245 curados) + `MCC_CATEGORIES` no frontend — categorias proibidas não existem |
 | Schema como contrato | `CategoryAttributeSchema.validate()` aplicado na intenção e na proposta (chaves permitidas, tipos, obrigatórias) |
-| Propostas seladas | Supplier não tem endpoint para ver propostas concorrentes; UI oferece apenas RFQ (leilão aberto removido do produto) |
-| Ownership do aceite | `@PreAuthorize` + `SourcingSecurityService.isEventOwner` — o usuário autenticado é o `buyerContactId` do evento |
-| Sem custódia | Porta `EscrowGateway` no contexto `agreement` — só referências e gatilhos; `MockEscrowGateway` (dev) deve ser trocado por adaptador de PSP autorizado antes da Fase 1; `payment-integration` modela conectores |
-| Contrato & liquidação | `Agreement`: snapshot imutável + SHA-256 no aceite; eficácia só com funding (48h); rastreio obrigatório no envio; janela de inspeção de 72h; teto de ticket (R$ 3.000) com rollback do aceite acima dele; scheduler de lapso/default/auto-liberação |
-| Propostas seladas (limites) | Máx. 7 propostas por intenção (`SourcingEvent.MAX_SEALED_PROPOSALS`); 1 proposta por vendedor por intenção; validade default de 72h (`valid_until`) — proposta expirada não pode ser aceita |
-| ODR | `/agreements/{id}/dispute` só pelo comprador dentro da janela; `/resolve` só ADMIN; decisão executa o escrow sem fechar a via judicial |
-| Trilha probatória | Transactional Outbox (`event_outbox`) com eventos de domínio versionados por agregado |
-| Identidade verificada | Registro exige CPF/CNPJ com validação de dígitos; roles BUYER/SUPPLIER separadas |
+| Propostas seladas | Visibilidade restrita ao dono da intenção (ou admin) em REST **e** GraphQL — vendedor não lê propostas concorrentes por nenhuma superfície; UI oferece apenas RFQ (leilão aberto removido do produto) |
+| Ownership do aceite | `isEventOwner` exigido no aceite em REST **e** GraphQL; o dono gravado é sempre o usuário autenticado (`buyerContactId` = principal); `supplierId` da proposta vem do token (impersonação bloqueada) |
+| Sem custódia | Porta `EscrowGateway` no contexto `agreement` — só referências e gatilhos, com chave de idempotência por operação; `ProductionSafetyGuard` impede o boot em prod com o mock de escrow (exceto opt-in explícito de Fase 0) ou com JWT secret default |
+| Contrato & liquidação | `Agreement`: snapshot imutável + SHA-256 no aceite; eficácia só com funding (48h); rastreio obrigatório e prazo de entrega (15d) no envio — SHIPPED não é beco sem saída (disputa por não-entrega + reembolso automático no prazo vencido); entrega confirmada **só pelo comprador**; janela de inspeção de 72h; teto de ticket (R$ 3.000) com rollback do aceite; scheduler com transação por contrato |
+| Propostas seladas (limites) | Máx. 7 propostas por intenção (`SourcingEvent.MAX_SEALED_PROPOSALS`); 1 proposta por vendedor por intenção; validade default de 72h (`valid_until`) — proposta expirada não pode ser aceita; perdedores rejeitados explicitamente no aceite |
+| ODR | `/agreements/{id}/dispute` pelo comprador (janela de inspeção, ou a qualquer momento em SHIPPED por não-entrega); `/resolve` só ADMIN; decisão executa o escrow sem fechar a via judicial. **Parcial:** prazos de rodada/decisão e split do PARTIAL ainda não executáveis (Frente 4) |
+| Trilha probatória | Transactional Outbox **operante**: todo módulo despacha domain events na mesma transação da mudança (sourcing, agreement, user, notification), com `aggregateType` real na routing key; relay com ShedLock drena para o RabbitMQ |
+| Notificações críticas | Feed in-app vivo (`/api/v1/notifications`): proposta recebida/aceita/rejeitada, pagar em custódia, envio, entrega, liberação, disputa e desfechos. **Parcial:** WebSocket/push é evolução (Frente 5) |
+| Identidade verificada | **Parcial.** CPF/CNPJ com validação de dígitos e roles separadas; lockout e status checados antes do login; refresh token tipado. Verificação de e-mail/KYC ainda **não** é exigida no registro e consentimento LGPD ainda não é coletado — pré-condição de usuário real (Frente 2) |

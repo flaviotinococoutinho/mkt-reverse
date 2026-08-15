@@ -50,14 +50,20 @@ O sistema é um **monólito modular**: um único deployable (`application/api-ga
 - React 18 + TypeScript + Vite; React Hook Form + Zod; Axios com refresh automático de token.
 - Smoke E2E de API (`scripts/smoke-flow.mjs`): registra buyer/supplier, cria evento, propõe, aceita e valida status final — usado no guardrail diário de CI.
 
-### FASE 1 (esqueleto de domínio pronto, sem fiação)
+### `modules/notification-service` — Notificações do ciclo financeiro (implementado, canal in-app)
 
-#### `modules/payment-integration` — Escrow via PSP
-- `PaymentConnector` (conector para PSP autorizado: chaves, status, rotação de segredo) e `EscrowAgreement` (acordo de retenção vinculado a um contrato).
-- **Regra inegociável:** a plataforma nunca custodia valores (Lei 12.865/2013; Res. BCB 80/2021). O módulo modela apenas gatilhos de liberação; a custódia é do PSP.
+- `Notification` com canais, prioridade e tentativas de entrega, persistido via JPA.
+- Canal do MVP: **IN_APP** — o `DomainEventNotificationListener` (api-gateway, AFTER_COMMIT em
+  transação própria) traduz eventos de domínio em notificações para a contraparte: proposta
+  recebida/aceita/rejeitada, pagar em custódia, envio, entrega, liberação, disputa e desfechos.
+- Consumo: `GET /api/v1/notifications` (feed do usuário autenticado, via polling do web-app) e
+  `POST /api/v1/notifications/{id}/read`.
+- Evolução: WebSocket/push para os eventos onde a latência doer primeiro — latência de
+  notificação é latência do modelo.
 
-#### `modules/notification-service` — Notificações críticas
-- `Notification` com canais, prioridade e tentativas de entrega. No kickoff: sem e-mail; WebSocket/push apenas para eventos críticos (proposta recebida, aceite, funding, entrega, disputa). Latência de notificação é latência do modelo — cada evento crítico terá SLA monitorado.
+> O módulo `payment-integration` foi removido: era esqueleto sem fiação e o `EscrowAgreement`
+> duplicava o `Agreement`. O adaptador real de PSP será uma implementação da porta
+> `EscrowGateway` dentro do contexto `agreement` (ver next-fronts.md, Frente 3).
 
 ### `modules/agreement-management` — Contrato & Liquidação (implementado)
 
@@ -69,9 +75,10 @@ aceite inteiro sofre rollback. A máquina de estados, espelhada em eventos de do
 
 ```
 PENDING_FUNDING ──► FUNDED ──► SHIPPED ──► DELIVERED ──► (janela 72h) ──► RELEASED
-      │(snapshot        │(eficácia;                          │
-      │ imutável)       │ prazo de envio)                    └──► DISPUTED ──► RESOLVED_{REFUNDED|PARTIAL|RELEASED}
-      │
+      │(snapshot        │(eficácia;      │(prazo de           │
+      │ imutável)       │ prazo de envio)│ entrega 15d)       └──► DISPUTED ──► RESOLVED_{REFUNDED|PARTIAL|RELEASED}
+      │                                  ├──► DISPUTED           (não-entrega, pelo buyer)
+      │                                  └──► SELLER_DEFAULTED   (prazo de entrega vencido → reembolso — scheduler)
       ├──► LAPSED            (sem funding em 48h — scheduler)
       ├──► SELLER_DEFAULTED  (não enviou no prazo → reembolso — scheduler)
       └──► CANCELLED         (mútuo acordo antes do funding)
@@ -79,14 +86,18 @@ PENDING_FUNDING ──► FUNDED ──► SHIPPED ──► DELIVERED ──►
 
 Peças do contexto:
 - `Agreement` (aggregate root) — transições com guardas; teto de ticket na abertura.
-- `EscrowGateway` (porta) — o escrow vive no PSP autorizado; `MockEscrowGateway` simula o PSP
-  em dev/Fase 0 e **deve** ser substituído por adaptador real antes de dinheiro de verdade
-  (`marketplace.escrow.mock=false`).
-- `AgreementLifecycleScheduler` — lapso de funding, seller default e auto-liberação pós-janela
-  (ShedLock para exclusão mútua).
+- `EscrowGateway` (porta) — o escrow vive no PSP autorizado; toda operação carrega **chave de
+  idempotência determinística** (`EscrowIdempotency`) para que retry jamais mova dinheiro duas
+  vezes; o domínio é validado ANTES de comandar o PSP. `MockEscrowGateway` simula o PSP (com
+  dedupe) em dev/Fase 0; em profile `prod` o `ProductionSafetyGuard` recusa o boot com o mock
+  ativo sem opt-in explícito de Fase 0.
+- `AgreementLifecycleScheduler` — lapso de funding, seller default, **não-entrega** (SHIPPED com
+  prazo vencido → reembolso) e auto-liberação pós-janela; **uma transação por contrato** com
+  skip de poison item (ShedLock para exclusão mútua).
 - API: `/api/v1/agreements/{id}` + `/fund` (buyer), `/ship` (seller, rastreio obrigatório),
-  `/deliver`, `/release` (buyer), `/dispute` (buyer, dentro da janela), `/resolve` (admin/ODR).
-  Visibilidade restrita às partes.
+  `/deliver` (**buyer** — o vendedor não auto-declara entrega), `/release` (buyer), `/dispute`
+  (buyer: janela de inspeção, ou a qualquer momento em SHIPPED por não-entrega), `/resolve`
+  (admin/ODR). Visibilidade restrita às partes.
 
 Invariantes:
 - O aceite gera **snapshot imutável** (proposta + versão do schema + termos, com hash e carimbo de tempo) — o outbox transacional evolui para essa função probatória.
@@ -107,7 +118,15 @@ Fluxo de request: `Controller → Application Service → Domain (agregado) → 
 
 ## Eventos & Assíncrono
 
-- **Transactional Outbox Light**: eventos de domínio persistidos em `event_outbox` na mesma transação do agregado; `OutboxRelay` (com ShedLock para exclusão mútua entre instâncias) publica no RabbitMQ.
+- **Transactional Outbox operante**: os application services de sourcing, agreement e o
+  registro/login publicam os domain events dos agregados na MESMA transação da escrita
+  (`DomainEventPublisher` → `shr_outbox_events`), com `aggregateType` real na routing key;
+  `OutboxRelay` (ShedLock; flag `marketplace.messaging.relay-enabled`) drena para o RabbitMQ.
+- O mesmo publish alimenta os listeners locais: `SourcingEventIndexer` (indexação de busca,
+  AFTER_COMMIT) e `DomainEventNotificationListener` (notificações in-app, AFTER_COMMIT em
+  transação própria).
+- Regra para código novo: **todo save de agregado com domain events publica antes de retornar** —
+  save sem publish corta a trilha probatória, a indexação e as notificações de uma vez.
 - Sem Kafka/Debezium por decisão (STACK.md) — o volume do MVP não justifica.
 
 ## Dados
