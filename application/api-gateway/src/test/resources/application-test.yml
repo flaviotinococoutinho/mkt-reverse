@@ -13,3 +13,9 @@ spring:
     allow-bean-definition-overriding: true
 server:
   port: 0
+
+marketplace:
+  messaging:
+    # No broker in tests — the outbox still accumulates (and is asserted on);
+    # only the drain to RabbitMQ is disabled.
+    relay-enabled: false

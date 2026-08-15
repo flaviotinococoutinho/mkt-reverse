@@ -5,6 +5,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Added
+- **Eventing operante (fim do S1 da pm-review)** — os application services de sourcing e agreement e o registro/login publicam os domain events na mesma transação da escrita: outbox probatório (`shr_outbox_events`) passa a acumular a trilha com `aggregateType` real na routing key; `SupplierResponseStatusChangedEvent` (SUBMITTED/ACCEPTED/REJECTED) criado — perdedores de proposta selada são rejeitados explicitamente no aceite
+- **`notification-service` vivo (canal in-app)** — persistência JPA, `NotificationApplicationService`, canal `IN_APP`; `DomainEventNotificationListener` no gateway traduz o ciclo financeiro em notificações ("sua proposta foi aceita", "pague em custódia", "envie o item", "pagamento liberado", disputa e desfechos); feed em `GET /api/v1/notifications` + `POST /{id}/read`; tabelas no init.sql
+- **Idempotência no caminho do dinheiro (fim do S3)** — `EscrowGateway` com chave determinística por operação (`EscrowIdempotency`); domínio validado ANTES de comandar o PSP (`Agreement.requireFundable`); sweeps do scheduler com uma transação POR contrato e skip de poison item; `UNIQUE` em `response_id`
+- **SHIPPED deixou de ser beco sem saída** — prazo de entrega (`delivery_deadline`, default 15d) definido no envio; disputa por não-entrega pelo comprador a qualquer momento em SHIPPED; sweep reembolsa (SELLER_DEFAULTED) após o prazo; entrega confirmada **só pelo comprador ou admin** (fim da auto-entrega fraudulenta)
+- **`ProductionSafetyGuard`** — em profile `prod` o boot falha com JWT secret default ou mock de escrow sem opt-in explícito de Fase 0 (`marketplace.escrow.allow-mock-in-prod`)
+- `docs/product/identity.md` (identidade, diferencial, voz e anti-escopo) e `docs/product/next-fronts.md` (frentes priorizadas pós-P0)
+- Teste E2E de eventing (outbox populado + feed in-app do vendedor + marcar lida) e negativas de autorização novas (accept GraphQL por não-dono; deliver por supplier)
 - **Contexto `agreement` (contrato & liquidação)** — novo módulo `agreement-management`: agregado `Agreement` com máquina de estados (PENDING_FUNDING → FUNDED → SHIPPED → DELIVERED → RELEASED | DISPUTED → RESOLVED_*, + LAPSED/SELLER_DEFAULTED/CANCELLED), snapshot imutável do aceite com hash SHA-256, porta `EscrowGateway` (mock de dev; PSP real é pré-condição do gate da Fase 1), teto de ticket, janelas de funding/envio/inspeção e scheduler de lapso/auto-liberação
 - `AcceptanceCoordinator` — aceite premia o evento e abre o contrato em uma transação (rollback integral acima do teto do escrow); header `X-Agreement-Id` na resposta do aceite (REST e GraphQL)
 - API `/api/v1/agreements` — fund (buyer), ship (seller, rastreio obrigatório), deliver, release (buyer), dispute (buyer, janela de 72h), resolve (admin/ODR); visibilidade restrita às partes
@@ -16,6 +23,10 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 - Handler dedicado de `AccessDeniedException` (403 Problem Details)
 
 ### Changed
+- **Autorização fechada nas duas superfícies (fim do S2)** — GraphQL: `acceptResponse` e `sourcingEventResponses` exigem dono/admin, `createSourcingEvent` grava o principal como dono (fim do `UUID.randomUUID()` como dono fantasma), `submitResponse` vincula `supplierId` ao token, papéis espelhando o REST, `AccessDenied` mapeado para `FORBIDDEN`; REST: `GET /sourcing-events/{id}/responses` e `PATCH /sourcing-events/{id}` restritos ao dono/admin, `supplierId` do body só honrado para admin; catálogo: writes exigem `ROLE_ADMIN`
+- JWT endurecido — refresh token tipado (`type=refresh`) e recusado como bearer; `validateToken` null-safe (fim do NPE→500 no `/refresh`); lockout e status (BANNED/SUSPENDED) checados ANTES do match de senha; refresh checa status da conta
+- `OutboxRelay` atrás da flag `marketplace.messaging.relay-enabled` (false no profile de teste — sem broker, sem spam de erro); `TransactionalOutboxPublisher` usa o `aggregateType` do evento em vez de `"Aggregate"` hardcoded
+- `guardrails.md` §3 corrigida para afirmar só o que o código entrega (identidade verificada e prazos de ODR marcados como parciais); README/ARCHITECTURE atualizados (eventing operante, notification-service implementado, nota de honestidade na Fase 1); `.github/copilot-instructions.md` reescrito fiel ao código (era um sistema imaginário com Kafka/microservices)
 - **Taxonomia MCC reescrita** com códigos reais ISO 18245 (`MccCategory` como enum), organizada por nicho/fase e funcionando como denylist estrutural — categorias proibidas (medicamentos, imóveis etc.) removidas; frontend (`MCC_CATEGORIES`) e facetas SQL espelhados
 - UI de criação de solicitação restrita a **RFQ (propostas seladas)** — leilão reverso aberto removido do produto conforme modelo ajustado
 - Smoke E2E autentica por padrão (`SMOKE_AUTH != '0'`) e usa `accessToken`
@@ -23,6 +34,7 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 - `.env.example` enxuto (sem Kafka/Elasticsearch/MinIO/blockchain/ERP/e-mail) com regras de escrow via PSP
 
 ### Removed
+- Módulo `payment-integration` (fora do deployable; `EscrowAgreement` duplicava o `Agreement` — o adaptador real de PSP será implementação da porta `EscrowGateway` no contexto agreement) e os três `*UseCase` órfãos de sourcing (caminho paralelo ao application service, sem call-sites)
 - Módulos órfãos sem uso: `auction-engine`, `blockchain-integration`, `erp-integration`, `analytics-service`, `contract-management`, `supplier-management`, `opportunity-management`, `proposal-management`, `ui-configuration-service`, `opportunity-service`
 - Diretórios de arquitetura abandonada: `bff-gateway/`, `features/`, `frontend/`, `shared/src`
 - Fluxo de alertas quebrado no sourcing (`AlertService`, `OpportunityAlert`, `AlertRepository`, `AlertPersistenceAdapter` — referenciava `AlertId` inexistente) e `SourcingEventEntity` órfão

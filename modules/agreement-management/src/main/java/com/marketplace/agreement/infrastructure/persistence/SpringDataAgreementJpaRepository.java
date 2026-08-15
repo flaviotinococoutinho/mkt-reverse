@@ -24,6 +24,10 @@ public interface SpringDataAgreementJpaRepository extends JpaRepository<Agreemen
     List<Agreement> findByStatusAndShippingDeadlineBefore(
         @Param("status") AgreementStatus status, @Param("ref") Instant reference);
 
+    @Query("select a from Agreement a where a.status = :status and a.deliveryDeadline < :ref")
+    List<Agreement> findByStatusAndDeliveryDeadlineBefore(
+        @Param("status") AgreementStatus status, @Param("ref") Instant reference);
+
     @Query("select a from Agreement a where a.status = :status and a.inspectionDeadline < :ref")
     List<Agreement> findByStatusAndInspectionDeadlineBefore(
         @Param("status") AgreementStatus status, @Param("ref") Instant reference);

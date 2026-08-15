@@ -62,12 +62,20 @@ public class Recipient implements Serializable {
         return new Recipient(recipientId, null, phone.trim(), null, false, true, false);
     }
 
+    /** In-app recipient: only the user id is needed — the feed is pulled. */
+    public static Recipient inApp(String recipientId) {
+        if (recipientId == null || recipientId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Recipient id cannot be blank");
+        }
+        return new Recipient(recipientId.trim(), null, null, null, false, false, false);
+    }
+
     public Recipient allowChannel(NotificationChannel channel, boolean allowed) {
         return switch (channel) {
             case EMAIL -> new Recipient(recipientId, email, phone, locale, allowed, allowSms, allowPush);
             case SMS, WHATSAPP -> new Recipient(recipientId, email, phone, locale, allowEmail, allowed, allowPush);
             case PUSH, SLACK -> new Recipient(recipientId, email, phone, locale, allowEmail, allowSms, allowed);
-            case WEBHOOK -> this;
+            case IN_APP, WEBHOOK -> this;
         };
     }
 }

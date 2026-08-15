@@ -19,6 +19,8 @@ public interface AgreementRepository {
 
     List<Agreement> findFundedShippingExpired(Instant reference);
 
+    List<Agreement> findShippedDeliveryExpired(Instant reference);
+
     List<Agreement> findDeliveredInspectionExpired(Instant reference);
 
     boolean existsByResponseId(String responseId);

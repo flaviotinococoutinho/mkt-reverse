@@ -15,6 +15,7 @@ class AgreementTest {
 
     private static final Duration FUNDING = Duration.ofHours(48);
     private static final Duration SHIPPING = Duration.ofDays(7);
+    private static final Duration DELIVERY = Duration.ofDays(15);
     private static final Duration INSPECTION = Duration.ofHours(72);
     private static final long CEILING = 300_000L;
 
@@ -66,7 +67,7 @@ class AgreementTest {
         assertThat(agreement.getEscrowReference()).isEqualTo("psp-ref-1");
         assertThat(agreement.getShippingDeadline()).isNotNull();
 
-        agreement.ship("BR123456789", Instant.now());
+        agreement.ship("BR123456789", Instant.now(), DELIVERY);
         assertThat(agreement.getStatus()).isEqualTo(AgreementStatus.SHIPPED);
 
         agreement.markDelivered(Instant.now(), INSPECTION);
@@ -82,7 +83,7 @@ class AgreementTest {
     void cannotShipWithoutFunding() {
         Agreement agreement = newAgreement();
 
-        assertThatThrownBy(() -> agreement.ship("BR1", Instant.now()))
+        assertThatThrownBy(() -> agreement.ship("BR1", Instant.now(), DELIVERY))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("PENDING_FUNDING");
     }
@@ -92,7 +93,7 @@ class AgreementTest {
         Agreement agreement = newAgreement();
         agreement.fund("psp-ref", Instant.now(), SHIPPING);
 
-        assertThatThrownBy(() -> agreement.ship("  ", Instant.now()))
+        assertThatThrownBy(() -> agreement.ship("  ", Instant.now(), DELIVERY))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("trackingCode");
     }
@@ -110,7 +111,7 @@ class AgreementTest {
     void autoReleaseOnlyAfterInspectionWindow() {
         Agreement agreement = newAgreement();
         agreement.fund("psp-ref", Instant.now(), SHIPPING);
-        agreement.ship("BR1", Instant.now());
+        agreement.ship("BR1", Instant.now(), DELIVERY);
         agreement.markDelivered(Instant.now(), INSPECTION);
 
         assertThatThrownBy(() -> agreement.release(Instant.now(), false))
@@ -125,7 +126,7 @@ class AgreementTest {
     void disputeWithinWindowThenResolveRefund() {
         Agreement agreement = newAgreement();
         agreement.fund("psp-ref", Instant.now(), SHIPPING);
-        agreement.ship("BR1", Instant.now());
+        agreement.ship("BR1", Instant.now(), DELIVERY);
         agreement.markDelivered(Instant.now(), INSPECTION);
 
         agreement.openDispute("Item veio paralelo, proposta declarava original=true", Instant.now());
@@ -139,7 +140,7 @@ class AgreementTest {
     void disputeAfterWindowFails() {
         Agreement agreement = newAgreement();
         agreement.fund("psp-ref", Instant.now(), SHIPPING);
-        agreement.ship("BR1", Instant.now());
+        agreement.ship("BR1", Instant.now(), DELIVERY);
         agreement.markDelivered(Instant.now().minus(Duration.ofHours(100)), INSPECTION);
 
         assertThatThrownBy(() -> agreement.openDispute("tarde demais", Instant.now()))
@@ -164,6 +165,53 @@ class AgreementTest {
 
         agreement.markSellerDefault(afterDeadline);
         assertThat(agreement.getStatus()).isEqualTo(AgreementStatus.SELLER_DEFAULTED);
+    }
+
+    @Test
+    void shipSetsDeliveryDeadline() {
+        Agreement agreement = newAgreement();
+        agreement.fund("psp-ref", Instant.now(), SHIPPING);
+
+        Instant shippedAt = Instant.now();
+        agreement.ship("BR123", shippedAt, DELIVERY);
+
+        assertThat(agreement.getDeliveryDeadline()).isEqualTo(shippedAt.plus(DELIVERY));
+    }
+
+    @Test
+    void buyerCanDisputeNonDeliveryFromShipped() {
+        Agreement agreement = newAgreement();
+        agreement.fund("psp-ref", Instant.now(), SHIPPING);
+        agreement.ship("BR1", Instant.now(), DELIVERY);
+
+        agreement.openDispute("Rastreio parado ha 10 dias, nada chegou", Instant.now());
+        assertThat(agreement.getStatus()).isEqualTo(AgreementStatus.DISPUTED);
+    }
+
+    @Test
+    void deliveryOverdueRefundsAsSellerDefault() {
+        Agreement agreement = newAgreement();
+        agreement.fund("psp-ref", Instant.now(), SHIPPING);
+        agreement.ship("BR1", Instant.now(), DELIVERY);
+
+        assertThatThrownBy(() -> agreement.markDeliveryOverdue(Instant.now()))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("not elapsed");
+
+        agreement.markDeliveryOverdue(agreement.getDeliveryDeadline().plusSeconds(1));
+        assertThat(agreement.getStatus()).isEqualTo(AgreementStatus.SELLER_DEFAULTED);
+    }
+
+    @Test
+    void requireFundableDoesNotChangeState() {
+        Agreement agreement = newAgreement();
+        agreement.requireFundable(Instant.now());
+        assertThat(agreement.getStatus()).isEqualTo(AgreementStatus.PENDING_FUNDING);
+
+        agreement.fund("psp-ref", Instant.now(), SHIPPING);
+        assertThatThrownBy(() -> agreement.requireFundable(Instant.now()))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("FUNDED");
     }
 
     @Test

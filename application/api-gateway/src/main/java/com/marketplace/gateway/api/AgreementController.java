@@ -118,6 +118,7 @@ public class AgreementController {
         String escrowReference,
         String fundingDeadline,
         String shippingDeadline,
+        String deliveryDeadline,
         String inspectionDeadline,
         String disputeReason,
         String resolutionNote
@@ -137,6 +138,7 @@ public class AgreementController {
                 a.getEscrowReference(),
                 a.getFundingDeadline() != null ? a.getFundingDeadline().toString() : null,
                 a.getShippingDeadline() != null ? a.getShippingDeadline().toString() : null,
+                a.getDeliveryDeadline() != null ? a.getDeliveryDeadline().toString() : null,
                 a.getInspectionDeadline() != null ? a.getInspectionDeadline().toString() : null,
                 a.getDisputeReason(),
                 a.getResolutionNote()

@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -12,8 +13,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Publishes unprocessed outbox rows to RabbitMQ. Disable where no broker
+ * exists (tests, minimal local runs) — the outbox keeps accumulating the
+ * probative trail either way; the relay only drains it to the exchange.
+ */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "marketplace.messaging.relay-enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 public class OutboxRelay {
 

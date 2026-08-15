@@ -1,10 +1,14 @@
 package com.marketplace.gateway.graphql;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.graphql.tester.AutoConfigureGraphQlTester;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.graphql.test.tester.GraphQlTester;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.Map;
@@ -17,8 +21,21 @@ class SourcingGraphqlTest {
     @Autowired
     GraphQlTester graphQlTester;
 
+    // Resolvers agora exigem papel/dono (method security lê o SecurityContext).
+    private static void actAs(String userId, String role) {
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(
+                userId, "n/a", AuthorityUtils.createAuthorityList("ROLE_" + role)));
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     void can_create_event_submit_offer_and_accept_via_graphql() {
+        actAs("buyer-gql-1", "BUYER");
         String createMutation = """
             mutation($input: CreateSourcingEventInput!) {
               createSourcingEvent(input: $input)
@@ -54,6 +71,7 @@ class SourcingGraphqlTest {
             .entity(String.class)
             .get();
 
+        actAs("supplier-gql-1", "SUPPLIER");
         String submitMutation = """
             mutation($input: SubmitResponseInput!) {
               submitResponse(input: $input)
@@ -86,6 +104,28 @@ class SourcingGraphqlTest {
             }
             """;
 
+        // Um terceiro autenticado (o próprio supplier) NÃO fecha o contrato.
+        actAs("supplier-gql-1", "SUPPLIER");
+        graphQlTester
+            .document(acceptMutation)
+            .variable("eventId", eventId)
+            .variable("responseId", responseId)
+            .execute()
+            .errors()
+            .satisfy(errors -> {
+                if (errors.isEmpty()) {
+                    throw new AssertionError("Expected FORBIDDEN error for non-owner accept");
+                }
+                Object code = errors.getFirst().getExtensions() != null
+                    ? errors.getFirst().getExtensions().get("code")
+                    : null;
+                if (!"FORBIDDEN".equals(code)) {
+                    throw new AssertionError("Expected extensions.code=FORBIDDEN but got " + code);
+                }
+            });
+
+        // O dono da intenção aceita.
+        actAs("buyer-gql-1", "BUYER");
         graphQlTester
             .document(acceptMutation)
             .variable("eventId", eventId)
@@ -132,6 +172,7 @@ class SourcingGraphqlTest {
 
     @Test
     void supplier_can_query_opportunities_directory() {
+        actAs("buyer-gql-2", "BUYER");
         String createMutation = """
             mutation($input: CreateSourcingEventInput!) {
               createSourcingEvent(input: $input)
@@ -166,6 +207,7 @@ class SourcingGraphqlTest {
             .entity(String.class)
             .get();
 
+        actAs("supplier-gql-2", "SUPPLIER");
         String query = """
             query($supplierId: String!, $tenantId: String, $q: String) {
               opportunitiesForSupplier(supplierId: $supplierId, tenantId: $tenantId, q: $q, visibility: "ALL", page: 0, size: 10) { id status }
@@ -189,6 +231,7 @@ class SourcingGraphqlTest {
 
     @Test
     void graphql_errors_include_code_and_correlation_id_extensions() {
+        actAs("buyer-gql-3", "BUYER");
         String createMutation = """
             mutation($input: CreateSourcingEventInput!) {
               createSourcingEvent(input: $input)

@@ -1,6 +1,7 @@
 package com.marketplace.sourcing.domain.model;
 
 import com.marketplace.shared.domain.model.AggregateRoot;
+import com.marketplace.sourcing.domain.event.SupplierResponseStatusChangedEvent;
 import com.marketplace.shared.valueobject.CurrencyCode;
 import com.marketplace.shared.valueobject.Money;
 import com.marketplace.sourcing.domain.valueobject.OfferCondition;
@@ -130,6 +131,7 @@ public class SupplierResponse extends AggregateRoot<SupplierResponseId> {
         this.validUntil = validUntil;
         this.status = SupplierResponseStatus.SUBMITTED;
         markAsCreated();
+        statusEvent(null, SupplierResponseStatus.SUBMITTED, submittedAt);
     }
 
     public static SupplierResponse submit(
@@ -211,17 +213,32 @@ public class SupplierResponse extends AggregateRoot<SupplierResponseId> {
         if (isExpired(reference)) {
             throw new IllegalStateException("Proposal validity has expired; it can no longer be accepted");
         }
+        SupplierResponseStatus previous = this.status;
         this.status = SupplierResponseStatus.ACCEPTED;
         this.acceptedAt = reference != null ? reference : Instant.now();
         markAsUpdated();
+        statusEvent(previous, SupplierResponseStatus.ACCEPTED, this.acceptedAt);
     }
 
     public void reject(Instant reference) {
         if (status != SupplierResponseStatus.SUBMITTED) {
             throw new IllegalStateException("Only submitted responses can be rejected");
         }
+        SupplierResponseStatus previous = this.status;
         this.status = SupplierResponseStatus.REJECTED;
         markAsUpdated();
+        statusEvent(previous, SupplierResponseStatus.REJECTED, reference);
+    }
+
+    private void statusEvent(SupplierResponseStatus previous, SupplierResponseStatus current, Instant occurredAt) {
+        addDomainEvent(new SupplierResponseStatusChangedEvent(
+            id != null ? id.asString() : "",
+            eventId != null ? eventId.asString() : "",
+            supplierId,
+            current,
+            previous,
+            occurredAt
+        ));
     }
 
     @Override

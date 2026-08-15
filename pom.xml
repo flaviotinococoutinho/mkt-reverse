@@ -83,7 +83,6 @@
         <!-- Fase 1 (contrato & liquidação; escrow via PSP + notificações críticas) -->
         <module>modules/agreement-management</module>
         <module>modules/notification-service</module>
-        <module>modules/payment-integration</module>
 
         <!-- Application -->
         <module>application/api-gateway</module>
