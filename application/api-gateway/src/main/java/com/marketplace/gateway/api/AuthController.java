@@ -1,12 +1,14 @@
 package com.marketplace.gateway.api;
 
 import com.marketplace.gateway.config.JwtTokenProvider;
+import com.marketplace.shared.events.DomainEventPublisher;
 import com.marketplace.user.domain.model.User;
 import com.marketplace.user.domain.repository.UserRepository;
 import com.marketplace.user.domain.valueobject.Document;
 import com.marketplace.user.domain.valueobject.Password;
 import com.marketplace.user.domain.valueobject.PersonalInfo;
 import com.marketplace.user.domain.valueobject.UserType;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -23,17 +25,30 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final DomainEventPublisher domainEventPublisher;
 
     // MVP: Token blacklist (em produção, usar Redis ou banco)
     private final java.util.Set<String> invalidatedTokens = ConcurrentHashMap.newKeySet();
 
-    public AuthController(UserRepository userRepository, JwtTokenProvider jwtTokenProvider) {
+    public AuthController(
+            UserRepository userRepository,
+            JwtTokenProvider jwtTokenProvider,
+            DomainEventPublisher domainEventPublisher) {
         this.userRepository = userRepository;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.domainEventPublisher = domainEventPublisher;
+    }
+
+    private User saveAndPublish(User user) {
+        User saved = userRepository.save(user);
+        domainEventPublisher.publishAll(user.getDomainEvents());
+        user.clearDomainEvents();
+        return saved;
     }
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
     public Map<String, Object> register(@Valid @RequestBody RegisterRequest req) {
         com.marketplace.user.domain.valueobject.Email email = com.marketplace.user.domain.valueobject.Email.of(req.email);
         if (userRepository.existsByEmail(email)) {
@@ -51,47 +66,59 @@ public class AuthController {
         User user = User.create(email, password, personalInfo, document, req.userType);
 
         user.activate();
-        userRepository.save(user);
+        saveAndPublish(user);
 
         return generateAuthResponse(user);
     }
 
     @PostMapping("/login")
+    @Transactional
     public Map<String, Object> login(@Valid @RequestBody LoginRequest req) {
         com.marketplace.user.domain.valueobject.Email email = com.marketplace.user.domain.valueobject.Email.of(req.email);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Credenciais inválidas"));
 
-        if (!user.getPassword().matches(req.password)) {
-            user.recordFailedLogin();
-            userRepository.save(user);
-            throw new IllegalArgumentException("Credenciais inválidas");
-        }
-
+        // Lockout ANTES do match de senha (senão não barra brute-force) e
+        // status ANTES de emitir token (BANNED/SUSPENDED não logam).
         if (user.isLocked()) {
             throw new IllegalArgumentException("Conta temporariamente bloqueada");
         }
+        if (!user.isActive()) {
+            throw new IllegalArgumentException("Conta não está ativa");
+        }
+
+        if (!user.getPassword().matches(req.password)) {
+            user.recordFailedLogin();
+            saveAndPublish(user);
+            throw new IllegalArgumentException("Credenciais inválidas");
+        }
 
         user.recordLogin();
-        userRepository.save(user);
+        saveAndPublish(user);
 
         return generateAuthResponse(user);
     }
 
     @PostMapping("/refresh")
     public Map<String, Object> refresh(@Valid @RequestBody RefreshRequest req) {
-        // Valida refresh token
         Map<String, Object> validation = jwtTokenProvider.validateToken(req.refreshToken());
         if (!(Boolean) validation.getOrDefault("valid", false)) {
             throw new IllegalArgumentException("Refresh token inválido ou expirado");
         }
+        // Um access token NÃO serve como refresh token.
+        if (!jwtTokenProvider.isRefreshToken(req.refreshToken())) {
+            throw new IllegalArgumentException("Token informado não é um refresh token");
+        }
 
         String userId = jwtTokenProvider.getUserIdFromToken(req.refreshToken());
-        
-        // Busca usuário pelo ID
+
         java.util.UUID uuid = java.util.UUID.fromString(userId);
         User user = userRepository.findById(com.marketplace.user.domain.valueobject.UserId.of(uuid))
                 .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
+
+        if (user.isLocked() || !user.isActive()) {
+            throw new IllegalArgumentException("Conta não pode renovar sessão");
+        }
 
         return generateAuthResponse(user);
     }

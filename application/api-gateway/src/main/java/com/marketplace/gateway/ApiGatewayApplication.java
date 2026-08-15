@@ -14,23 +14,26 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         "com.marketplace.agreement",
         "com.marketplace.user",
         "com.marketplace.catalog",
+        "com.marketplace.notification",
         "com.marketplace.shared"
     }
 )
 @EntityScan(basePackages = {
     "com.marketplace.gateway",
     "com.marketplace.sourcing",
-        "com.marketplace.agreement",
+    "com.marketplace.agreement",
     "com.marketplace.user",
     "com.marketplace.catalog",
+    "com.marketplace.notification",
     "com.marketplace.shared"
 })
 @EnableJpaRepositories(basePackages = {
     "com.marketplace.gateway",
     "com.marketplace.sourcing",
-        "com.marketplace.agreement",
+    "com.marketplace.agreement",
     "com.marketplace.user",
     "com.marketplace.catalog",
+    "com.marketplace.notification",
     "com.marketplace.shared"
 })
 public class ApiGatewayApplication {

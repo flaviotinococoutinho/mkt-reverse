@@ -121,7 +121,9 @@ CREATE TABLE IF NOT EXISTS agr_agreements (
     id BIGINT PRIMARY KEY,
     tenant_id VARCHAR(50) NOT NULL,
     event_id VARCHAR(36) NOT NULL,
-    response_id VARCHAR(36) NOT NULL,
+    -- UNIQUE: dois aceites simultâneos da mesma proposta são barrados pelo
+    -- banco, não só pelo check-then-act da aplicação.
+    response_id VARCHAR(36) NOT NULL UNIQUE,
     buyer_id VARCHAR(64) NOT NULL,
     supplier_id VARCHAR(64) NOT NULL,
     price_cents BIGINT NOT NULL,
@@ -134,6 +136,8 @@ CREATE TABLE IF NOT EXISTS agr_agreements (
     funded_at TIMESTAMP,
     shipping_deadline TIMESTAMP,
     shipped_at TIMESTAMP,
+    -- Prazo da transportadora: SHIPPED nunca é beco sem saída.
+    delivery_deadline TIMESTAMP,
     tracking_code VARCHAR(100),
     delivered_at TIMESTAMP,
     inspection_deadline TIMESTAMP,
@@ -150,6 +154,92 @@ CREATE INDEX IF NOT EXISTS idx_agr_event ON agr_agreements(event_id);
 CREATE INDEX IF NOT EXISTS idx_agr_status ON agr_agreements(status);
 CREATE INDEX IF NOT EXISTS idx_agr_buyer ON agr_agreements(buyer_id);
 CREATE INDEX IF NOT EXISTS idx_agr_supplier ON agr_agreements(supplier_id);
+
+-- ----------------------------------------------------------
+-- Transactional Outbox (trilha probatória — shared-infrastructure)
+-- Escrito na MESMA transação da mudança de negócio; o OutboxRelay
+-- publica no RabbitMQ e marca processed.
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS shr_outbox_events (
+    id VARCHAR(255) PRIMARY KEY,
+    aggregate_type VARCHAR(255) NOT NULL,
+    aggregate_id VARCHAR(255) NOT NULL,
+    event_type VARCHAR(255) NOT NULL,
+    payload TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    processed BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_processed ON shr_outbox_events(processed);
+CREATE INDEX IF NOT EXISTS idx_outbox_created_at ON shr_outbox_events(created_at);
+
+-- ----------------------------------------------------------
+-- ShedLock (locks distribuídos: OutboxRelay + AgreementLifecycleScheduler)
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS shedlock (
+    name VARCHAR(64) PRIMARY KEY,
+    lock_until TIMESTAMP NOT NULL,
+    locked_at TIMESTAMP NOT NULL,
+    locked_by VARCHAR(255) NOT NULL
+);
+
+-- ----------------------------------------------------------
+-- Notifications (canal in-app do MVP — contexto notification)
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS not_notifications (
+    id UUID PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    template_code VARCHAR(100),
+    notification_type VARCHAR(100),
+    primary_channel VARCHAR(20) NOT NULL,
+    priority VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    subject VARCHAR(200),
+    body TEXT,
+    payload TEXT,
+    queued_at TIMESTAMP NOT NULL,
+    scheduled_at TIMESTAMP,
+    sent_at TIMESTAMP,
+    delivered_at TIMESTAMP,
+    cancelled_at TIMESTAMP,
+    cancellation_reason VARCHAR(300),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    version BIGINT DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_not_tenant ON not_notifications(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_not_status ON not_notifications(status);
+CREATE INDEX IF NOT EXISTS idx_not_template ON not_notifications(template_code);
+
+CREATE TABLE IF NOT EXISTS not_notification_recipients (
+    notification_id UUID NOT NULL REFERENCES not_notifications(id),
+    recipient_id VARCHAR(36),
+    recipient_email VARCHAR(255),
+    recipient_phone VARCHAR(30),
+    recipient_locale VARCHAR(10),
+    recipient_allow_email BOOLEAN NOT NULL DEFAULT FALSE,
+    recipient_allow_sms BOOLEAN NOT NULL DEFAULT FALSE,
+    recipient_allow_push BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_not_recipient ON not_notification_recipients(recipient_id);
+
+CREATE TABLE IF NOT EXISTS not_notification_channels (
+    notification_id UUID NOT NULL REFERENCES not_notifications(id),
+    channel VARCHAR(20)
+);
+
+CREATE TABLE IF NOT EXISTS not_notification_attempts (
+    notification_id UUID NOT NULL REFERENCES not_notifications(id),
+    sequence INTEGER,
+    attempt_number INTEGER NOT NULL,
+    attempt_channel VARCHAR(20) NOT NULL,
+    attempt_at TIMESTAMP NOT NULL,
+    attempt_status VARCHAR(20) NOT NULL,
+    attempt_response VARCHAR(500),
+    attempt_error_code VARCHAR(50)
+);
 
 -- ----------------------------------------------------------
 -- Sys Config Table

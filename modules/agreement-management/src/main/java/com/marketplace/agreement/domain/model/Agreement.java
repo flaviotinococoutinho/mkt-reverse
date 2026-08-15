@@ -54,7 +54,7 @@ public class Agreement extends AggregateRoot<AgreementId> {
     @Column(name = "event_id", nullable = false, length = 36)
     private String eventId;
 
-    @Column(name = "response_id", nullable = false, length = 36)
+    @Column(name = "response_id", nullable = false, length = 36, unique = true)
     private String responseId;
 
     @Column(name = "buyer_id", nullable = false, length = 64)
@@ -95,6 +95,10 @@ public class Agreement extends AggregateRoot<AgreementId> {
 
     @Column(name = "shipped_at")
     private Instant shippedAt;
+
+    /** Deadline for the carrier to deliver — SHIPPED must never be a dead end. */
+    @Column(name = "delivery_deadline")
+    private Instant deliveryDeadline;
 
     @Column(name = "tracking_code", length = 100)
     private String trackingCode;
@@ -199,14 +203,25 @@ public class Agreement extends AggregateRoot<AgreementId> {
         );
     }
 
-    /** Escrow funded at the PSP: the contract becomes effective. */
-    public void fund(String escrowReference, Instant now, Duration shippingWindow) {
+    /**
+     * Validates that the escrow can be funded right now, WITHOUT changing
+     * state. The application service MUST call this before commanding the PSP,
+     * so an invalid transition never reaches the gateway (a JPA rollback does
+     * not undo money movements).
+     */
+    public void requireFundable(Instant now) {
         requireStatus(AgreementStatus.PENDING_FUNDING, "fund");
-        requireText(escrowReference, "escrowReference");
         Instant ref = now != null ? now : Instant.now();
         if (ref.isAfter(fundingDeadline)) {
             throw new IllegalStateException("Funding deadline has elapsed; the agreement lapsed");
         }
+    }
+
+    /** Escrow funded at the PSP: the contract becomes effective. */
+    public void fund(String escrowReference, Instant now, Duration shippingWindow) {
+        requireFundable(now);
+        requireText(escrowReference, "escrowReference");
+        Instant ref = now != null ? now : Instant.now();
         this.escrowReference = escrowReference;
         this.fundedAt = ref;
         this.shippingDeadline = ref.plus(shippingWindow != null ? shippingWindow : Duration.ofDays(7));
@@ -214,11 +229,12 @@ public class Agreement extends AggregateRoot<AgreementId> {
     }
 
     /** Seller shipped — tracking code is mandatory (release precondition). */
-    public void ship(String trackingCode, Instant now) {
+    public void ship(String trackingCode, Instant now, Duration deliveryWindow) {
         requireStatus(AgreementStatus.FUNDED, "ship");
         requireText(trackingCode, "trackingCode");
         this.trackingCode = trackingCode.trim();
         this.shippedAt = now != null ? now : Instant.now();
+        this.deliveryDeadline = this.shippedAt.plus(deliveryWindow != null ? deliveryWindow : Duration.ofDays(15));
         transition(AgreementStatus.SHIPPED, "shipped, tracking=" + this.trackingCode);
     }
 
@@ -246,16 +262,25 @@ public class Agreement extends AggregateRoot<AgreementId> {
             buyerConfirmed ? "released by buyer confirmation" : "auto-released after inspection window");
     }
 
-    /** Buyer opens a dispute within the inspection window. */
+    /**
+     * Buyer opens a dispute: from DELIVERED within the inspection window, or
+     * from SHIPPED at any time (non-delivery — the money is the buyer's and
+     * SHIPPED must never lock it away).
+     */
     public void openDispute(String reason, Instant now) {
-        requireStatus(AgreementStatus.DELIVERED, "openDispute");
+        if (status != AgreementStatus.DELIVERED && status != AgreementStatus.SHIPPED) {
+            throw new IllegalStateException(
+                "Cannot openDispute an agreement in status " + status + " (requires SHIPPED or DELIVERED)");
+        }
         requireText(reason, "reason");
         Instant ref = now != null ? now : Instant.now();
-        if (inspectionDeadline != null && ref.isAfter(inspectionDeadline)) {
+        if (status == AgreementStatus.DELIVERED
+            && inspectionDeadline != null && ref.isAfter(inspectionDeadline)) {
             throw new IllegalStateException("Inspection window has elapsed; dispute can no longer be opened");
         }
         this.disputeReason = reason.trim();
-        transition(AgreementStatus.DISPUTED, "dispute opened");
+        transition(AgreementStatus.DISPUTED,
+            status == AgreementStatus.SHIPPED ? "dispute opened (non-delivery)" : "dispute opened");
     }
 
     /** ODR decision executes the escrow (does not block access to the Judiciary). */
@@ -294,6 +319,17 @@ public class Agreement extends AggregateRoot<AgreementId> {
         transition(AgreementStatus.SELLER_DEFAULTED, "seller failed to ship in time");
     }
 
+    /** Carrier never delivered within the window — refund + seller default. */
+    public void markDeliveryOverdue(Instant now) {
+        requireStatus(AgreementStatus.SHIPPED, "markDeliveryOverdue");
+        Instant ref = now != null ? now : Instant.now();
+        if (deliveryDeadline == null || !ref.isAfter(deliveryDeadline)) {
+            throw new IllegalStateException("Delivery deadline has not elapsed yet");
+        }
+        this.closedAt = ref;
+        transition(AgreementStatus.SELLER_DEFAULTED, "delivery deadline elapsed without confirmation");
+    }
+
     /** Mutual cancellation, only before the contract becomes effective. */
     public void cancel(Instant now) {
         requireStatus(AgreementStatus.PENDING_FUNDING, "cancel");
@@ -330,7 +366,11 @@ public class Agreement extends AggregateRoot<AgreementId> {
             id != null ? id.asString() : "",
             from,
             to,
-            detail
+            detail,
+            buyerId,
+            supplierId,
+            eventId,
+            tenantId
         ));
     }
 

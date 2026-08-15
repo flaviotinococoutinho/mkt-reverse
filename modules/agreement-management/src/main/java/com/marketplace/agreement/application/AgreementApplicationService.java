@@ -1,10 +1,12 @@
 package com.marketplace.agreement.application;
 
 import com.marketplace.agreement.application.port.EscrowGateway;
+import com.marketplace.agreement.application.port.EscrowIdempotency;
 import com.marketplace.agreement.domain.model.Agreement;
 import com.marketplace.agreement.domain.repository.AgreementRepository;
 import com.marketplace.agreement.domain.valueobject.AgreementId;
 import com.marketplace.agreement.domain.valueobject.ResolutionOutcome;
+import com.marketplace.shared.events.DomainEventPublisher;
 import com.marketplace.shared.id.IdGenerator;
 import com.marketplace.sourcing.domain.model.SourcingEvent;
 import com.marketplace.sourcing.domain.model.SupplierResponse;
@@ -33,7 +35,16 @@ import java.util.Map;
  * docs/compliance/guardrails.md — they only go up by explicit decision:
  * - escrow ticket ceiling (default R$ 3.000)
  * - funding window (default 48h), shipping window (default 7d),
- *   inspection window (default 72h)
+ *   delivery window (default 15d), inspection window (default 72h)
+ *
+ * Money-path invariants:
+ * - the domain is validated BEFORE any PSP command (a JPA rollback does not
+ *   undo money movements);
+ * - every PSP command carries a deterministic idempotency key so retries
+ *   after a crash never move money twice;
+ * - scheduler sweeps run one transaction PER agreement — a poison item is
+ *   skipped and retried on the next tick instead of reverting the whole
+ *   batch after escrow commands were already emitted.
  */
 @Service
 public class AgreementApplicationService {
@@ -44,10 +55,12 @@ public class AgreementApplicationService {
     private final EscrowGateway escrowGateway;
     private final IdGenerator idGenerator;
     private final ObjectMapper objectMapper;
+    private final DomainEventPublisher domainEventPublisher;
 
     private final long maxTicketCents;
     private final Duration fundingWindow;
     private final Duration shippingWindow;
+    private final Duration deliveryWindow;
     private final Duration inspectionWindow;
 
     public AgreementApplicationService(
@@ -57,9 +70,11 @@ public class AgreementApplicationService {
         EscrowGateway escrowGateway,
         IdGenerator idGenerator,
         ObjectMapper objectMapper,
+        DomainEventPublisher domainEventPublisher,
         @Value("${marketplace.escrow.max-ticket-cents:300000}") long maxTicketCents,
         @Value("${marketplace.escrow.funding-window-hours:48}") long fundingWindowHours,
         @Value("${marketplace.escrow.shipping-window-days:7}") long shippingWindowDays,
+        @Value("${marketplace.escrow.delivery-window-days:15}") long deliveryWindowDays,
         @Value("${marketplace.escrow.inspection-window-hours:72}") long inspectionWindowHours
     ) {
         this.agreementRepository = agreementRepository;
@@ -68,9 +83,11 @@ public class AgreementApplicationService {
         this.escrowGateway = escrowGateway;
         this.idGenerator = idGenerator;
         this.objectMapper = objectMapper;
+        this.domainEventPublisher = domainEventPublisher;
         this.maxTicketCents = maxTicketCents;
         this.fundingWindow = Duration.ofHours(fundingWindowHours);
         this.shippingWindow = Duration.ofDays(shippingWindowDays);
+        this.deliveryWindow = Duration.ofDays(deliveryWindowDays);
         this.inspectionWindow = Duration.ofHours(inspectionWindowHours);
     }
 
@@ -117,7 +134,7 @@ public class AgreementApplicationService {
             maxTicketCents
         );
 
-        return agreementRepository.save(agreement);
+        return saveAndPublish(agreement);
     }
 
     @Transactional
@@ -126,9 +143,11 @@ public class AgreementApplicationService {
         if (!isAdmin && !agreement.getBuyerId().equals(userId)) {
             throw new AccessDeniedToAgreementException("Only the buyer can fund the escrow");
         }
-        String reference = escrowGateway.fund(agreement);
-        agreement.fund(reference, Instant.now(), shippingWindow);
-        return agreementRepository.save(agreement);
+        Instant now = Instant.now();
+        agreement.requireFundable(now);
+        String reference = escrowGateway.fund(agreement, EscrowIdempotency.fundKey(agreement));
+        agreement.fund(reference, now, shippingWindow);
+        return saveAndPublish(agreement);
     }
 
     @Transactional
@@ -137,18 +156,23 @@ public class AgreementApplicationService {
         if (!isAdmin && !agreement.getSupplierId().equals(userId)) {
             throw new AccessDeniedToAgreementException("Only the seller of this agreement can register shipment");
         }
-        agreement.ship(trackingCode, Instant.now());
-        return agreementRepository.save(agreement);
+        agreement.ship(trackingCode, Instant.now(), deliveryWindow);
+        return saveAndPublish(agreement);
     }
 
+    /**
+     * Delivery confirmation belongs to the BUYER (or admin/carrier webhook in
+     * the future) — never the seller, or a fake tracking code plus the
+     * inspection window would auto-release the escrow without merchandise.
+     */
     @Transactional
     public Agreement markDelivered(String agreementId, String userId, boolean isAdmin) {
         Agreement agreement = requireAgreement(agreementId);
-        if (!isAdmin && !agreement.isParty(userId)) {
-            throw new AccessDeniedToAgreementException("Only a party of the agreement can confirm delivery");
+        if (!isAdmin && !agreement.getBuyerId().equals(userId)) {
+            throw new AccessDeniedToAgreementException("Only the buyer can confirm delivery");
         }
         agreement.markDelivered(Instant.now(), inspectionWindow);
-        return agreementRepository.save(agreement);
+        return saveAndPublish(agreement);
     }
 
     @Transactional
@@ -159,8 +183,8 @@ public class AgreementApplicationService {
             throw new AccessDeniedToAgreementException("Only the buyer can release the escrow before the window elapses");
         }
         agreement.release(Instant.now(), buyerConfirmed || isAdmin);
-        escrowGateway.release(agreement);
-        return agreementRepository.save(agreement);
+        escrowGateway.release(agreement, EscrowIdempotency.releaseKey(agreement));
+        return saveAndPublish(agreement);
     }
 
     @Transactional
@@ -170,7 +194,7 @@ public class AgreementApplicationService {
             throw new AccessDeniedToAgreementException("Only the buyer can open a dispute");
         }
         agreement.openDispute(reason, Instant.now());
-        return agreementRepository.save(agreement);
+        return saveAndPublish(agreement);
     }
 
     /** ODR decision — admin only (enforced at the API layer). */
@@ -178,8 +202,8 @@ public class AgreementApplicationService {
     public Agreement resolve(String agreementId, ResolutionOutcome outcome, String note) {
         Agreement agreement = requireAgreement(agreementId);
         agreement.resolve(outcome, note, Instant.now());
-        escrowGateway.resolve(agreement, outcome);
-        return agreementRepository.save(agreement);
+        escrowGateway.resolve(agreement, outcome, EscrowIdempotency.resolveKey(agreement));
+        return saveAndPublish(agreement);
     }
 
     public Agreement get(String agreementId, String userId, boolean isAdmin) {
@@ -197,40 +221,72 @@ public class AgreementApplicationService {
     }
 
     // ── Scheduler entry points (system actions) ──────────────────────────
+    //
+    // The scheduler iterates candidate ids and calls the *One methods, one
+    // transaction per agreement (the candidate listing itself is not
+    // transactional). Each *One re-validates the state inside its own
+    // transaction, so a candidate that changed between listing and
+    // processing fails fast without touching the PSP.
 
-    @Transactional
-    public int lapseOverdueFunding(Instant reference) {
-        List<Agreement> overdue = agreementRepository.findPendingFundingExpired(reference);
-        overdue.forEach(a -> {
-            a.lapse(reference);
-            agreementRepository.save(a);
-        });
-        return overdue.size();
+    public List<String> findLapseCandidates(Instant reference) {
+        return ids(agreementRepository.findPendingFundingExpired(reference));
+    }
+
+    public List<String> findSellerDefaultCandidates(Instant reference) {
+        return ids(agreementRepository.findFundedShippingExpired(reference));
+    }
+
+    public List<String> findDeliveryOverdueCandidates(Instant reference) {
+        return ids(agreementRepository.findShippedDeliveryExpired(reference));
+    }
+
+    public List<String> findAutoReleaseCandidates(Instant reference) {
+        return ids(agreementRepository.findDeliveredInspectionExpired(reference));
     }
 
     @Transactional
-    public int defaultOverdueShipments(Instant reference) {
-        List<Agreement> overdue = agreementRepository.findFundedShippingExpired(reference);
-        overdue.forEach(a -> {
-            a.markSellerDefault(reference);
-            escrowGateway.refund(a);
-            agreementRepository.save(a);
-        });
-        return overdue.size();
+    public void lapseOne(String agreementId, Instant reference) {
+        Agreement agreement = requireAgreement(agreementId);
+        agreement.lapse(reference);
+        saveAndPublish(agreement);
     }
 
     @Transactional
-    public int autoReleaseAfterInspection(Instant reference) {
-        List<Agreement> overdue = agreementRepository.findDeliveredInspectionExpired(reference);
-        overdue.forEach(a -> {
-            a.release(reference, false);
-            escrowGateway.release(a);
-            agreementRepository.save(a);
-        });
-        return overdue.size();
+    public void sellerDefaultOne(String agreementId, Instant reference) {
+        Agreement agreement = requireAgreement(agreementId);
+        agreement.markSellerDefault(reference);
+        escrowGateway.refund(agreement, EscrowIdempotency.refundKey(agreement));
+        saveAndPublish(agreement);
+    }
+
+    @Transactional
+    public void deliveryOverdueOne(String agreementId, Instant reference) {
+        Agreement agreement = requireAgreement(agreementId);
+        agreement.markDeliveryOverdue(reference);
+        escrowGateway.refund(agreement, EscrowIdempotency.refundKey(agreement));
+        saveAndPublish(agreement);
+    }
+
+    @Transactional
+    public void autoReleaseOne(String agreementId, Instant reference) {
+        Agreement agreement = requireAgreement(agreementId);
+        agreement.release(reference, false);
+        escrowGateway.release(agreement, EscrowIdempotency.releaseKey(agreement));
+        saveAndPublish(agreement);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
+
+    private Agreement saveAndPublish(Agreement agreement) {
+        Agreement saved = agreementRepository.save(agreement);
+        domainEventPublisher.publishAll(saved.getDomainEvents());
+        saved.clearDomainEvents();
+        return saved;
+    }
+
+    private static List<String> ids(List<Agreement> agreements) {
+        return agreements.stream().map(a -> a.getId().asString()).toList();
+    }
 
     private Agreement requireAgreement(String agreementId) {
         return agreementRepository.findById(AgreementId.of(agreementId))

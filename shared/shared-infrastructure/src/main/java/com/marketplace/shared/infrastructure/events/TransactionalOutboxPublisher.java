@@ -34,8 +34,9 @@ public class TransactionalOutboxPublisher implements DomainEventPublisher {
         // 1. Save to Outbox (Persistence)
         try {
             String payload = objectMapper.writeValueAsString(event);
+            String aggregateType = event.getAggregateType();
             OutboxEvent outboxEvent = new OutboxEvent(
-                "Aggregate", // Ideally verify event metadata for aggregate type
+                aggregateType != null && !aggregateType.isBlank() ? aggregateType : "Aggregate",
                 event.getAggregateId(),
                 event.getEventType(),
                 payload

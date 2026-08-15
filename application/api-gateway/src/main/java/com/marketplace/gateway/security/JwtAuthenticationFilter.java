@@ -40,19 +40,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String email = (String) validation.get("email");
                 String role = (String) validation.get("role");
 
-                List<SimpleGrantedAuthority> authorities = List.of(
-                        new SimpleGrantedAuthority("ROLE_" + role.toUpperCase())
-                );
+                // A refresh token (no role claim) is NOT an access credential.
+                if (userId != null && role != null && !"refresh".equals(validation.get("type"))) {
+                    List<SimpleGrantedAuthority> authorities = List.of(
+                            new SimpleGrantedAuthority("ROLE_" + role.toUpperCase())
+                    );
 
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(userId, email, authorities);
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(userId, email, authorities);
 
-                authentication.setDetails(Map.of(
-                        "email", email,
-                        "role", role
-                ));
+                    Map<String, String> details = new java.util.HashMap<>();
+                    details.put("email", email);
+                    details.put("role", role);
+                    authentication.setDetails(details);
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
             }
         }
 

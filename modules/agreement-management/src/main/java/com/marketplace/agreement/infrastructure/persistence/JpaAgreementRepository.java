@@ -40,6 +40,11 @@ public class JpaAgreementRepository implements AgreementRepository {
     }
 
     @Override
+    public List<Agreement> findShippedDeliveryExpired(Instant reference) {
+        return jpa.findByStatusAndDeliveryDeadlineBefore(AgreementStatus.SHIPPED, reference);
+    }
+
+    @Override
     public List<Agreement> findDeliveredInspectionExpired(Instant reference) {
         return jpa.findByStatusAndInspectionDeadlineBefore(AgreementStatus.DELIVERED, reference);
     }

@@ -31,6 +31,10 @@ public class GraphqlExceptionResolver extends DataFetcherExceptionResolverAdapte
     protected GraphQLError resolveToSingleError(Throwable ex, DataFetchingEnvironment env) {
         Throwable root = unwrap(ex);
 
+        if (root instanceof org.springframework.security.access.AccessDeniedException) {
+            return error(env, ErrorType.FORBIDDEN, "FORBIDDEN", "Access denied");
+        }
+
         if (root instanceof IllegalArgumentException) {
             return error(env, ErrorType.BAD_REQUEST, "VALIDATION_ERROR", root.getMessage());
         }

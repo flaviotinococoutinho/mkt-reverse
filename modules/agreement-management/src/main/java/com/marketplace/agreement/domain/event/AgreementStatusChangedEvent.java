@@ -18,23 +18,39 @@ public class AgreementStatusChangedEvent implements DomainEvent {
     private final AgreementStatus fromStatus;
     private final AgreementStatus toStatus;
     private final String detail;
+    private final String buyerId;
+    private final String supplierId;
+    private final String sourcingEventId;
+    private final String tenantId;
     private final EventMetadata metadata;
 
     public AgreementStatusChangedEvent(
         String agreementId,
         AgreementStatus fromStatus,
         AgreementStatus toStatus,
-        String detail
+        String detail,
+        String buyerId,
+        String supplierId,
+        String sourcingEventId,
+        String tenantId
     ) {
         this.aggregateId = agreementId;
         this.fromStatus = fromStatus;
         this.toStatus = toStatus;
         this.detail = detail;
+        this.buyerId = buyerId;
+        this.supplierId = supplierId;
+        this.sourcingEventId = sourcingEventId;
+        this.tenantId = tenantId;
 
         Map<String, Object> props = new HashMap<>();
         props.put("from", fromStatus != null ? fromStatus.name() : "");
         props.put("to", toStatus != null ? toStatus.name() : "");
         props.put("detail", detail != null ? detail : "");
+        props.put("buyerId", buyerId != null ? buyerId : "");
+        props.put("supplierId", supplierId != null ? supplierId : "");
+        props.put("sourcingEventId", sourcingEventId != null ? sourcingEventId : "");
+        props.put("tenantId", tenantId != null ? tenantId : "");
         this.metadata = EventMetadata.create(
             getEventType(),
             getEventVersion(),
@@ -80,5 +96,21 @@ public class AgreementStatusChangedEvent implements DomainEvent {
 
     public String getDetail() {
         return detail;
+    }
+
+    public String getBuyerId() {
+        return buyerId;
+    }
+
+    public String getSupplierId() {
+        return supplierId;
+    }
+
+    public String getSourcingEventId() {
+        return sourcingEventId;
+    }
+
+    public String getTenantId() {
+        return tenantId;
     }
 }

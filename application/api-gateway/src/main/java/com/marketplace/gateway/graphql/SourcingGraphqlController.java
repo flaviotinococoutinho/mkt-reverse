@@ -15,11 +15,14 @@ import com.marketplace.sourcing.domain.valueobject.SupplierResponseId;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.UUID;
 
 @Controller
 public class SourcingGraphqlController {
@@ -91,7 +94,13 @@ public class SourcingGraphqlController {
             .toList();
     }
 
+    /**
+     * Sealed proposals are only visible to the intent owner (or admin) —
+     * a supplier reading competitors' offers would break the sealed-bid
+     * guardrail the model depends on.
+     */
     @QueryMapping
+    @PreAuthorize("@sourcingSecurityService.isEventOwner(#eventId, authentication.name) or hasAuthority('ROLE_ADMIN')")
     public List<SupplierResponseView> sourcingEventResponses(@Argument String eventId) {
         return service.listResponses(eventId).stream().map(SupplierResponseView::from).toList();
     }
@@ -99,6 +108,7 @@ public class SourcingGraphqlController {
     // --- Mutations ---
 
     @MutationMapping
+    @PreAuthorize("hasAuthority('ROLE_BUYER') or hasAuthority('ROLE_ADMIN')")
     public String createSourcingEvent(@Argument CreateSourcingEventInput input) {
         ProductSpecification spec = ProductSpecification.of(
             input.productName(),
@@ -120,7 +130,7 @@ public class SourcingGraphqlController {
             .createAndPublishEvent(
                 input.tenantId(),
                 input.buyerOrganizationId(),
-                UUID.randomUUID().toString(),
+                authenticatedUserId(),
                 input.buyerContactName(),
                 input.buyerContactPhone(),
                 input.buyerContactEmail(),
@@ -135,12 +145,19 @@ public class SourcingGraphqlController {
     }
 
     @MutationMapping
+    @PreAuthorize("hasAuthority('ROLE_SUPPLIER') or hasAuthority('ROLE_ADMIN')")
     public String submitResponse(@Argument SubmitResponseInput input) {
         Money offer = Money.fromCents(input.offerCents(), CurrencyCode.BRL);
 
+        // The proposal belongs to the AUTHENTICATED supplier — the id in the
+        // input is only honored for admins (no impersonation).
+        String supplierId = isAdmin() && input.supplierId() != null
+            ? input.supplierId()
+            : authenticatedUserId();
+
         SupplierResponseId responseId = service.submitResponse(
             input.eventId(),
-            input.supplierId(),
+            supplierId,
             input.supplierOrganizationId(),
             offer,
             input.message(),
@@ -154,10 +171,23 @@ public class SourcingGraphqlController {
         return responseId.asString();
     }
 
+    /** Only the intent owner closes the contract — acceptance moves money. */
     @MutationMapping
+    @PreAuthorize("@sourcingSecurityService.isEventOwner(#eventId, authentication.name) or hasAuthority('ROLE_ADMIN')")
     public boolean acceptResponse(@Argument String eventId, @Argument String responseId) {
         acceptanceCoordinator.acceptAndOpenAgreement(eventId, responseId, null);
         return true;
+    }
+
+    private static String authenticatedUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null ? authentication.getName() : null;
+    }
+
+    private static boolean isAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null
+            && authentication.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }
 
     // --- DTOs (GraphQL-facing) ---

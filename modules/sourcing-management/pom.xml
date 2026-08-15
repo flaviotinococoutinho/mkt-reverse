@@ -23,6 +23,11 @@
             <artifactId>shared-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.marketplace</groupId>
+            <artifactId>shared-events</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- Spring Boot Starters -->
         <dependency>

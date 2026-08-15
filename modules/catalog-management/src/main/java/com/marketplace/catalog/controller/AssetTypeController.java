@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,16 +37,19 @@ public class AssetTypeController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<AssetType> createAssetType(@RequestBody AssetType assetType) {
         return new ResponseEntity<>(service.createAssetType(assetType), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<AssetType> updateAssetType(@PathVariable Long id, @RequestBody AssetType assetType) {
         return ResponseEntity.ok(service.updateAssetType(id, assetType));
     }
 
     @PostMapping("/{id}/attributes")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<AssetType> addAttribute(
             @PathVariable Long id, 
             @RequestBody AttributeDefinition attribute) {

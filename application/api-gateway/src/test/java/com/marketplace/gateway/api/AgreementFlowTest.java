@@ -36,6 +36,9 @@ class AgreementFlowTest {
     @Autowired
     ObjectMapper objectMapper;
 
+    @Autowired
+    com.marketplace.shared.infrastructure.outbox.OutboxEventRepository outboxEventRepository;
+
     private static String buyerToken;
     private static String buyerUserId;
     private static String supplierToken;
@@ -91,8 +94,14 @@ class AgreementFlowTest {
             .andExpect(jsonPath("$.status").value("SHIPPED"))
             .andExpect(jsonPath("$.trackingCode").value("BR123456789XX"));
 
+        // The SELLER cannot self-declare delivery (fake tracking + inspection
+        // window would auto-release the escrow without merchandise).
         mvc.perform(post("/api/v1/agreements/" + agreementId + "/deliver")
                 .header("Authorization", "Bearer " + supplierToken))
+            .andExpect(status().isForbidden());
+
+        mvc.perform(post("/api/v1/agreements/" + agreementId + "/deliver")
+                .header("Authorization", "Bearer " + buyerToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("DELIVERED"));
 
@@ -100,6 +109,31 @@ class AgreementFlowTest {
                 .header("Authorization", "Bearer " + buyerToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("RELEASED"));
+    }
+
+    @Test
+    void buyerCanDisputeNonDeliveryWhileShipped() throws Exception {
+        String eventId = createEvent("Quero vinil raro", 25_000L);
+        String responseId = submitProposal(eventId, supplierUserId, 12_000L);
+        String agreementId = accept(eventId, responseId);
+
+        mvc.perform(post("/api/v1/agreements/" + agreementId + "/fund")
+                .header("Authorization", "Bearer " + buyerToken))
+            .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/agreements/" + agreementId + "/ship")
+                .header("Authorization", "Bearer " + supplierToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"trackingCode\":\"BR555\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.deliveryDeadline").isNotEmpty());
+
+        // SHIPPED is not a dead end: the buyer can dispute non-delivery.
+        mvc.perform(post("/api/v1/agreements/" + agreementId + "/dispute")
+                .header("Authorization", "Bearer " + buyerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"Rastreio parado, nada chegou\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("DISPUTED"));
     }
 
     @Test
@@ -173,6 +207,44 @@ class AgreementFlowTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(offer)))
             .andExpect(status().isConflict());
+    }
+
+    @Test
+    void eventingProducesOutboxTrailAndInAppNotifications() throws Exception {
+        String eventId = createEvent("Quero HQ edição de estreia", 25_000L);
+        String responseId = submitProposal(eventId, supplierUserId, 14_000L);
+        String agreementId = accept(eventId, responseId);
+
+        mvc.perform(post("/api/v1/agreements/" + agreementId + "/fund")
+                .header("Authorization", "Bearer " + buyerToken))
+            .andExpect(status().isOk());
+
+        // Probative trail: business changes land in the transactional outbox
+        // (same transaction), with real aggregate types for routing.
+        var outboxTypes = outboxEventRepository.findAll().stream()
+            .map(com.marketplace.shared.infrastructure.outbox.OutboxEvent::getAggregateType)
+            .collect(java.util.stream.Collectors.toSet());
+        assertThat(outboxTypes).contains("SourcingEvent", "SupplierResponse", "Agreement");
+
+        // Latency killer: the winning seller learns they won (in-app feed),
+        // and funding tells them to ship.
+        var supplierFeed = mvc.perform(get("/api/v1/notifications")
+                .header("Authorization", "Bearer " + supplierToken))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        var types = new java.util.ArrayList<String>();
+        objectMapper.readTree(supplierFeed).forEach(n -> types.add(n.get("type").asText()));
+        assertThat(types).contains("proposal.accepted", "agreement.funded");
+
+        // The recipient can mark it read; another user cannot.
+        String notificationId = objectMapper.readTree(supplierFeed).get(0).get("id").asText();
+        mvc.perform(post("/api/v1/notifications/" + notificationId + "/read")
+                .header("Authorization", "Bearer " + buyerToken))
+            .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/notifications/" + notificationId + "/read")
+                .header("Authorization", "Bearer " + supplierToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.read").value(true));
     }
 
     // ── helpers ───────────────────────────────────────────────────────────

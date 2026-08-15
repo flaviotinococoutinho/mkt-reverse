@@ -21,6 +21,9 @@ public interface NotificationRepository {
 
     List<Notification> findScheduledBefore(Instant reference);
 
+    /** Newest-first feed of a user's notifications (in-app polling). */
+    List<Notification> findByRecipientId(String recipientId);
+
     Notification save(Notification notification);
 
     void delete(Notification notification);

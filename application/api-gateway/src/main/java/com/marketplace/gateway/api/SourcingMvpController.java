@@ -248,6 +248,7 @@ public class SourcingMvpController {
     }
 
     @PatchMapping("/sourcing-events/{id}")
+    @PreAuthorize("@sourcingSecurityService.isEventOwner(#id, authentication.name) or hasAuthority('ROLE_ADMIN')")
     public EntityModel<CreateSourcingEventResponse> update(
         @PathVariable String id,
         @Valid @RequestBody UpdateSourcingEventRequest req
@@ -282,7 +283,10 @@ public class SourcingMvpController {
         return EntityModel.of(view, self, responses);
     }
 
+    // Sealed proposals: only the intent owner (or admin) reads them — a
+    // supplier reading competitors' offers breaks the sealed-bid guardrail.
     @GetMapping("/sourcing-events/{id}/responses")
+    @PreAuthorize("@sourcingSecurityService.isEventOwner(#id, authentication.name) or hasAuthority('ROLE_ADMIN')")
     public List<EntityModel<SupplierResponseView>> listResponses(
         @PathVariable String id,
         @RequestParam(required = false) String tenantId
@@ -307,12 +311,20 @@ public class SourcingMvpController {
     @PreAuthorize("hasAuthority('ROLE_SUPPLIER') or hasAuthority('ROLE_ADMIN')")
     public EntityModel<CreateSupplierResponseResponse> submitResponse(
         @PathVariable String id,
-        @Valid @RequestBody CreateSupplierResponseRequest req
+        @Valid @RequestBody CreateSupplierResponseRequest req,
+        org.springframework.security.core.Authentication authentication
     ) {
         Money offer = Money.fromCents(req.offerCents(), CurrencyCode.BRL);
+        // The proposal belongs to the AUTHENTICATED supplier; the body id is
+        // only honored for admins (no impersonation).
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        String supplierId = isAdmin && req.supplierId() != null && !req.supplierId().isBlank()
+            ? req.supplierId()
+            : authentication.getName();
         SupplierResponseId responseId = service.submitResponse(
             id,
-            req.supplierId(),
+            supplierId,
             req.supplierOrganizationId() != null ? req.supplierOrganizationId() : "org-default", // Fallback for MVP
             offer,
             req.message(),
@@ -388,7 +400,9 @@ public class SourcingMvpController {
     ) {}
 
     public record CreateSupplierResponseRequest(
-        @NotBlank String supplierId,
+        // Optional: the server binds the proposal to the authenticated
+        // supplier; the field is only honored for admins.
+        String supplierId,
         String supplierOrganizationId,
         @NotNull @Min(1) Long offerCents,
         Integer leadTimeDays,

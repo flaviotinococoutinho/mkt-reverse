@@ -61,18 +61,22 @@ class SourcingMvpControllerTest {
 
     private static String buyerToken;
     private static String supplierToken;
+    private static String supplierUserId;
 
     @org.junit.jupiter.api.BeforeEach
     void authenticate() throws Exception {
         if (buyerToken == null) {
-            buyerToken = obtainToken("sourcing-buyer@example.com", "52998224725", "CPF", "BUYER");
+            buyerToken = objectMapper.readTree(obtainAuth("sourcing-buyer@example.com", "52998224725", "CPF", "BUYER"))
+                .get("accessToken").asText();
         }
         if (supplierToken == null) {
-            supplierToken = obtainToken("sourcing-supplier@example.com", "11444777000161", "CNPJ", "SUPPLIER");
+            var supplierAuth = objectMapper.readTree(obtainAuth("sourcing-supplier@example.com", "11444777000161", "CNPJ", "SUPPLIER"));
+            supplierToken = supplierAuth.get("accessToken").asText();
+            supplierUserId = supplierAuth.get("user").get("id").asText();
         }
     }
 
-    private String obtainToken(String email, String documentNumber, String documentType, String userType) throws Exception {
+    private String obtainAuth(String email, String documentNumber, String documentType, String userType) throws Exception {
         var register = new java.util.LinkedHashMap<String, Object>();
         register.put("email", email);
         register.put("password", "Strong@123");
@@ -89,23 +93,20 @@ class SourcingMvpControllerTest {
             .andReturn();
 
         if (registerResult.getResponse().getStatus() == 201) {
-            return objectMapper.readTree(registerResult.getResponse().getContentAsString())
-                .get("accessToken").asText();
+            return registerResult.getResponse().getContentAsString();
         }
 
         var login = new java.util.LinkedHashMap<String, Object>();
         login.put("email", email);
         login.put("password", "Strong@123");
 
-        var loginResp = mvc.perform(post("/api/v1/auth/login")
+        return mvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(login)))
             .andExpect(status().isOk())
             .andReturn()
             .getResponse()
             .getContentAsString();
-
-        return objectMapper.readTree(loginResp).get("accessToken").asText();
     }
 
     @Test
@@ -210,7 +211,7 @@ class SourcingMvpControllerTest {
         var responseList = mvc.perform(get("/api/v1/sourcing-events/" + eventId + "/responses")
                 .header("Authorization", "Bearer " + buyerToken))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].supplierId").value("supplier-1"))
+            .andExpect(jsonPath("$[0].supplierId").value(supplierUserId))
             .andExpect(jsonPath("$[0].id").isString())
             .andReturn()
             .getResponse()
