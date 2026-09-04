@@ -5,3 +5,7 @@
 ## 2024-05-24 - Dynamic ARIA Labels in Attribute Lists
 **Learning:** When dealing with dynamic lists of inputs (like key-value attribute editors), icon-only remove buttons need specific, dynamic `aria-label`s (e.g., "Remove attribute Size") rather than generic ones ("Remove attribute") so screen reader users know exactly which item they are deleting.
 **Action:** Always interpolate the item's identifying value into the `aria-label` for list item actions.
+
+## 2026-09-04 - Dynamic ARIA Live Regions Require aria-atomic
+**Learning:** Found that `aria-live` regions displaying dynamic text changes (like pagination counters e.g., 'page 1 / 5') only announce the specific part that changed to screen readers by default.
+**Action:** Always add `aria-atomic="true"` to `aria-live` regions when the entire content needs to be announced as a cohesive unit during an update, preventing confusing isolated number announcements.
