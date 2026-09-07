@@ -111,8 +111,8 @@ Variáveis úteis:
 
 O MVP é deliberadamente enxuto — cada aumento de intermediação só entra acompanhado do controle correspondente (ver [docs/compliance/guardrails.md](docs/compliance/guardrails.md)):
 
-- **Sem e-mail** no MVP.
-- **Sem upload/URLs de imagem** no MVP — o schema tipado compensa.
+- **Sem e-mail** no MVP atual — verificação por e-mail (link mágico) e recuperação de senha entram na **R2** do [roadmap](docs/product/roadmap.md).
+- **Sem upload de imagem** no MVP atual — o schema tipado compensa; fotos (até 5, com limites) entram na **R2**, porque colecionáveis exigem.
 - **Sem dinheiro na plataforma** na Fase 0 — o fluxo transacional (escrow) entra na Fase 1, sempre via PSP autorizado.
 - Eventing assíncrono via **Transactional Outbox Light** (tabela `event_outbox` + scheduler), sem Debezium.
 - Infra local: **Docker Compose**.
