@@ -1,162 +1,83 @@
-# QueroJá — Próximas Frentes
+# QueroJá — Execução Técnica por Release
 
-> O plano de crescimento pós-fechamento dos defeitos sistêmicos (S1/S2/S3 da
-> [pm-review.md](pm-review.md)). Cada frente tem: por quê, escopo, critério de
-> saída e dependências. A ordem importa — é a ordem que destrava dinheiro real
-> sem criar passivo. Data: 2026-08-15.
+> O **"como"** de cada release do [roadmap.md](roadmap.md) (que é o "o quê/por quê").
+> Este documento não repete histórias nem critérios de aceite — só sequência técnica,
+> dependências, decisões de arquitetura e dívida a carregar. Data: 2026-08-15.
 >
-> **O que este documento assume como já resolvido** (ver CHANGELOG/Unreleased):
-> eventing despachando em todos os módulos (outbox probatório + indexação +
-> notificações in-app), autorização fechada (GraphQL com dono/papel, propostas
-> seladas invisíveis a concorrentes, supplierId do token, writes de catálogo
-> admin-only), caminho do dinheiro idempotente (chave por operação, domínio
-> antes do PSP, sweeps por item, prazo de entrega + disputa por não-entrega,
-> entrega confirmada só pelo comprador), guarda de produção (JWT/mock) e
-> notification-service vivo com feed in-app.
+> **Já resolvido** (PR #131/#132, na `main`): eventing despachando em todos os módulos
+> (outbox probatório + indexação + notificações in-app), autorização fechada em REST e
+> GraphQL, caminho do dinheiro idempotente (chave por operação, domínio antes do PSP,
+> sweeps por contrato, prazo de entrega + disputa por não-entrega, entrega só pelo
+> comprador), guarda de produção (JWT/mock), `notification-service` vivo.
 
 ---
 
-## Frente 1 — UI do ciclo do contrato (fecha o loop econômico)
+## R1 — Loop fechado
 
-**Por quê primeiro:** o backend do pós-aceite está pronto e órfão; o frontend
-descarta o `X-Agreement-Id` e manda o usuário para o WhatsApp — a UI atual
-ativamente redireciona a liquidação para fora da proteção. Nenhuma outra
-frente gera valor enquanto o usuário não consegue percorrer fund → release na
-tela.
+**Backend (pequeno, primeiro — destrava o frontend):**
+1. `GET /sourcing-events/mine` — `SourcingEventRepository` já filtra por tenant/status; adicionar filtro por `buyerContactId = authentication.name`.
+2. `GET /responses/mine` — nova query em `SupplierResponseRepository` por `supplierId`; view junta título/status do evento e, se existir, id/status do `Agreement` (via `AgreementRepository.findByEventId`).
+3. `GET /agreements/mine` — `findByBuyerIdOrSupplierId`; ordenar por `updatedAt`.
+4. `GET /categories` — expõe `MccCategory` (código, rótulo, nicho/fase) + `CategoryAttributeSchema` (chaves permitidas, tipo, unidade, obrigatoriedade) para o formulário schema-driven. Fonte única: a taxonomia de sourcing.
+5. Estender `scripts/smoke-flow.mjs`: aceite → `X-Agreement-Id` → fund → ship → deliver → release + `GET /notifications` do vendedor.
 
-**Escopo:**
-- Capturar `X-Agreement-Id` no aceite (`sourcingService.acceptResponse`) e
-  criar `agreementService` no web-app.
-- Tela do contrato por papel: comprador (pagar em custódia, confirmar
-  recebimento, liberar, abrir disputa), vendedor (registrar envio com
-  rastreio, acompanhar prazos).
-- Substituir o checklist pós-aceite "confirmar por WhatsApp" pelo CTA "pagar
-  em custódia" com as janelas visíveis (48h/7d/15d/72h).
-- Consumir o feed `/api/v1/notifications` (polling já existente no app) com
-  badge e lista.
-- Formulário de intenção: expor **orçamento máximo** e MCC (o backend já
-  aceita; sem orçamento o reverso não expressa "quero um sofá até R$ 2.000").
-- Escopo de propriedade em "Meus Pedidos" (listar pelo dono autenticado).
+**Frontend (ordem que minimiza retrabalho):**
+1. Fundação: adotar `@tanstack/react-query` (já instalado) com `QueryClientProvider`; remover o `ToastProvider` duplicado de `components/ui/feedback` (ficar com `context/ToastProvider`); corrigir tema dos componentes de feedback; criar `Modal` acessível (foco, `aria-modal`, Esc) e `MoneyInput` com máscara.
+2. `agreementService` + `notificationService` (axios) e hooks react-query (`useAgreement`, `useMyAgreements`, `useNotifications` com `refetchInterval`).
+3. Página `/agreements/:id` (linha do tempo por papel, snapshot legível, ações) e captura do `X-Agreement-Id` em `sourcingService.acceptResponse` → redirect. Remover `PostAcceptanceSummary`/`negotiationChecklist`.
+4. Sino no `AppHeader` + `/notifications`; navegação por papel no header (hoje não há links entre seções).
+5. `/supplier/proposals` (minhas propostas) sobre `GET /responses/mine`; refazer `SupplierDashboard` sem N+1.
+6. `BuyerDashboard` sobre `GET /sourcing-events/mine`, busca server-side, editar de fato.
+7. `CreateRequest` schema-driven: select de categoria (`GET /categories`), campos de atributos gerados pelo schema, orçamento máximo (MoneyInput), prazo em data → `estimatedBudgetCents`, `mccCategoryCode`, `attributes` no formato `{key,type,unit,value}` do backend (o `SpecAttribute {name,value}` atual do front está errado).
+8. `OpportunityDetail`/cards com especificação completa; `SubmitProposal` com atributos tipados.
+9. Landing reescrita (identity.md §1, §3, §6); rota 404 real; flag `VITE_DEV_TOOLS` escondendo gerador de CPF e OTP simulado.
+10. Testes: adicionar `@testing-library/react` + jsdom; cobrir modal de aceite, linha do tempo e formulário schema-driven.
 
-**Critério de saída:** um par comprador/vendedor completa
-intenção → proposta → aceite → custódia → envio → recebimento → liberação
-inteiramente na UI, com notificação em cada transição.
+**Decisões:** polling via react-query (WebSocket é R4); `agreementId` só via header (GraphQL continua devolvendo `boolean` — a UI usa REST no aceite).
 
-**Dependências:** nenhuma — o backend está pronto.
+## R2 — Confiança & retenção
 
-## Frente 2 — Identidade confiável (verificação real + LGPD)
+**Identidade (R2.1/R2.2):**
+- `EmailVerification` já existe no domínio `User`; expor `POST /auth/verify/request` + `POST /auth/verify/confirm` (token assinado, TTL); registro deixa de chamar `activate()` — ativa na confirmação. Login permitido em `PENDING_VERIFICATION` só para reenviar verificação.
+- Provedor de e-mail: SMTP simples (variáveis no `.env.example`); no compose, Mailpit para dev.
+- `Password` migra para bcrypt (`spring-security-crypto`) com `needsRehash` no login; `termsAcceptedAt`/`privacyAcceptedAt` no `User` + coluna no init.sql/Flyway.
+- `GET/PUT /users/me` — perfil (nome, localização, preferências, categorias de atuação do vendedor). `ProfileSetup` passa a persistir.
+- Recuperação de senha por link (mesmo mecanismo de token do verify).
 
-**Por quê:** o registro ativa a conta sem verificar nada e o consentimento
-LGPD nunca é coletado — bloqueia operar com usuário real (a própria doc de
-compliance exige RIPD antes do primeiro usuário).
+**Link público (R2.3):** `GET /public/sourcing-events/{id}` em `permitAll` no `SecurityConfig`, DTO próprio sem contato do comprador; página pública no web-app (rota sem guard) com meta OG renderizadas no HTML servido (pré-render simples ou `index.html` dinâmico no nginx — decidir pelo mais barato).
 
-**Escopo:**
-- Verificação de e-mail real no registro (fim do `activate()` incondicional);
-  o domínio `EmailVerification`/`KycVerification` já existe — falta expô-lo.
-- Consentimento (termos + privacidade) com `termsAcceptedAt` persistido.
-- Hash de senha bcrypt/argon2 com re-hash no login (hoje SHA-256).
-- Rate-limit em `/register` e `/login`; revogação de token real (a blacklist
-  em memória de hoje é inócua).
-- Enforcement do teto por nível de KYC nas operações de escrow.
+**Radar (R2.4):** agregado `SavedSearch` (vendedor, MCC, faixa de preço, atributos) em sourcing; listener `@TransactionalEventListener` sobre `SourcingEventCreatedEvent` que casa radares e chama `NotificationApplicationService.notifyInApp`. Limite de 5 por vendedor.
 
-**Critério de saída:** conta nova só transaciona com e-mail verificado e
-consentimento registrado; senha nunca em SHA-256; RIPD/LGPD documentado.
+**Reputação (R2.5):** projeção `SupplierReputation` recalculada a partir de `AgreementStatusChangedEvent` (RELEASED/RESOLVED_* contam; SELLER_DEFAULTED e disputa perdida penalizam). Sem texto livre. Exposta em `GET /suppliers/{id}/reputation` e embutida em `SupplierResponseView`.
 
-**Dependências:** nenhuma técnica; decisões de produto sobre atrito de
-onboarding (o guardrail é "KYC leve universal + tetos por usuário novo").
+**Mídia (R2.6):** `POST /media` com storage S3-compatível (MinIO no compose); tabela `shr_media`; referência por id na intenção/proposta; validação de tipo/tamanho; sem processamento de imagem além de miniatura.
 
-## Frente 3 — PSP real (Pix primeiro)
+**Admin (R2.7):** bootstrap via `MARKETPLACE_ADMIN_EMAIL` no primeiro boot (promove o usuário a `ROLE_ADMIN`); `AdminController` com métricas agregadas de `shr_outbox_events` + `agr_agreements` e fila `status = DISPUTED`; SPA `/admin` com guard `admin`.
 
-**Por quê:** é o gate da Fase 1. Toda a preparação está feita — porta
-idempotente, guarda anti-mock em prod, estado de funding validado antes do
-comando.
+**Busca (R2.8):** **decisão recomendada: cortar OpenSearch** — remover `OpportunitySearchClient` duplicado e o alvo `docker-up-search`; a rota `/supplier/search` passa a usar o full-text do Postgres já existente e vira a descoberta padrão.
 
-**Escopo:**
-- Adaptador de PSP autorizado (candidatos: Pagar.me, Mercado Pago, Asaas)
-  implementando `EscrowGateway` com repasse da idempotency key.
-- **Funding assíncrono**: intent de pagamento + webhook do PSP (Pix real não
-  confirma sincronamente). Novo estado `FUNDING_PENDING` entre
-  `PENDING_FUNDING` e `FUNDED`, transicionado pelo webhook.
-- Conciliação: job diário comparando estado local × extrato do PSP.
-- Flyway para as tabelas financeiras (`agr_agreements`, outbox, shedlock,
-  notifications) — dinheiro real não roda sobre `ddl-auto: update`.
-- Desligar `marketplace.escrow.mock` em staging e validar E2E com valores
-  simbólicos.
+## R3 — Dinheiro real
 
-**Critério de saída:** transação real de ponta a ponta em staging com Pix,
-incluindo reembolso e liberação; conciliação zerada por 7 dias seguidos.
+1. Novo estado `FUNDING_PENDING` no `Agreement` (+ `paymentIntentId`); `fund` vira `requestFunding` (cria intent no PSP, devolve QR) e o webhook `confirmFunding` transiciona para `FUNDED`; timeout do intent volta a `PENDING_FUNDING`. Sweep de lapso considera os dois estados.
+2. `PixEscrowGateway` (Pagar.me/Mercado Pago/Asaas — decidir pelo contrato) implementando a porta com a idempotency key; `@ConditionalOnProperty(marketplace.escrow.mock=false)`.
+3. `POST /psp/webhooks/{provider}` com verificação de assinatura e idempotência por `eventId` do PSP.
+4. Job de conciliação (ShedLock) comparando `escrow_reference` × extrato; relatório em tabela `agr_reconciliation`.
+5. Flyway: baseline das tabelas financeiras/identidade/outbox/shedlock/notifications; `ddl-auto: validate` em prod; Testcontainers substituindo H2 nos testes do gateway.
+6. Endereço: agregado `ShippingAddress` do comprador; exposto ao vendedor só com `status ≥ FUNDED`; rastreio validado via API (Correios/Melhor Envio) no `ship`; webhook de entrega como caminho de `markDelivered` neutro.
+7. ODR: `disputeOpenedAt`, rodadas de evidência com deadline, scheduler em `DISPUTED`; `resolve` com `splitCents` para `PARTIAL`; `actor` em cada transição para auditoria honesta.
+8. Termos de escrow versionados: `termsVersion` entra no snapshot hasheado; aceite dos termos no `requestFunding`.
 
-**Dependências:** Frente 1 (sem UI não há como pagar); contrato assinado com
-o PSP.
+## R4 — Crescimento
 
-## Frente 4 — Confiança operacional (disputas e reputação)
+Preço-âncora (agregação por MCC de `offerAmount` em `RELEASED`); WebSocket (STOMP) para o feed; PWA (manifest, service worker de cache do feed); vertical moda circular (novo schema MCC + anexo contratual); indicação vendedor→vendedor (tabela de convites); demand feed agregado só com política LGPD e parecer tributário.
 
-**Por quê:** o gate da Fase 1 se mede em disputa (<3% do GMV, custo <25% do
-take). Precisamos operar disputas com prazos e construir o ativo de
-reputação que o comprador usa para decidir.
+## Trilha contínua
 
-**Escopo:**
-- Prazos de ODR (rodadas de evidência de 48h, decisão ≤7 dias) com scheduler
-  sobre `DISPUTED`; valor/percentual no `RESOLVED_PARTIAL` (hoje o split não
-  é executável).
-- Ator honesto em cada transição (release por admin não pode registrar
-  "by buyer confirmation").
-- Modelo de endereço com revelação pós-funding (entrega real é impossível
-  sem endereço; revelar antes vaza dado pessoal).
-- Validação de rastreio contra API de transportadora (hoje aceita qualquer
-  string não vazia) e, depois, webhook de entrega da transportadora como
-  confirmador neutro.
-- Reputação bilateral v1: score derivado de contratos concluídos/disputas
-  (nunca de reviews em texto livre), exposto no ranking de propostas.
-- Penalidade objetiva de `SELLER_DEFAULTED` (rebaixamento/suspensão).
+- Observabilidade: Micrometer com contadores de funil (`intent.created`, `proposal.submitted`, `agreement.*`) derivados dos listeners existentes; dashboards fora do escopo do repo.
+- Higiene: remover alvos `docker-up-kong`/`docker-up-search` e o serviço `postgres-user` do compose (um Postgres); `catalog-management` fora do classpath do gateway até decisão de unificação.
+- Segurança: tenant do claim JWT (ignorar query param) — `SourcingSecurityService.canAccessTenant` já existe e está morto; revogação de token em Redis (o serviço já sobe no compose); rate-limit em `/auth/*`; cookie httpOnly quando houver domínio.
+- Frontend: tokens fora de `localStorage` junto com o cookie; testes Playwright do ciclo do contrato no guardrail diário.
 
-**Critério de saída:** disputa piloto resolvida dentro do prazo com split
-parcial executado; ranking de propostas exibindo reputação.
+## O que NÃO fazer
 
-**Dependências:** Frentes 1 e 3 (disputa real exige dinheiro real).
-
-## Frente 5 — Operação do nicho de kickoff (colecionáveis)
-
-**Por quê:** tecnologia não valida liquidez — o gate da Fase 0 (≥60% das
-intenções com ≥3 propostas em 48h) se ganha com operação concierge num nicho.
-
-**Escopo:**
-- Seed manual de oferta em 1–2 comunidades de colecionáveis.
-- Preço-âncora por categoria ("intenções nessa faixa recebem em média X
-  propostas") a partir do histórico.
-- Métricas do funil no admin: fill rate, taxa de aceite, latência até 1ª
-  proposta, vazamento declarado.
-- WebSocket/push substituindo polling onde a latência doer primeiro
-  (proposta recebida, aceite).
-
-**Critério de saída:** gate da Fase 0 medido com dado real por 4 semanas.
-
-**Dependências:** Frente 1 (funil completo na UI).
-
-## Frente 6 — Higiene estrutural (contínua, em paralelo)
-
-- Unificar as duas taxonomias (catalog × sourcing) ou rebaixar
-  `catalog-management` formalmente a Fase 2 fora do classpath.
-- Isolamento de tenant server-side (claim do JWT, ignorando query param).
-- Bean Validation no GraphQL; DTO no catálogo (fim do mass assignment).
-- Runbook de operação da Fase 1; API reference (REST + GraphQL); ADRs de
-  escrow/eventing.
-- Testcontainers para os testes de integração (H2 `MODE=PostgreSQL` diverge
-  do Postgres real em JSONB/full-text).
-
----
-
-## O que NÃO fazer (reafirmação de anti-escopo)
-
-Ver [identity.md §7](identity.md). Em particular: nenhuma custódia própria,
-nenhum leilão aberto, nenhuma categoria fora da denylist, nenhum pay-per-lead,
-nenhuma venda de dado de demanda antes de política LGPD aprovada.
-
-## Mapa P0 remanescente (pm-review §7 → frentes)
-
-| P0 da pm-review | Frente |
-|---|---|
-| 2 (canal WebSocket), 16, 17 | 1 (UI) e 5 (WebSocket) |
-| 12 (funding assíncrono) | 3 |
-| 13/14 (verificação, consentimento) | 2 |
-| Demais itens de autorização/eventing/escrow | **Fechados** (este ciclo) |
+Ver [identity.md §7](identity.md): nenhuma custódia própria, nenhum leilão aberto, nenhuma categoria fora da denylist, nenhum pay-per-lead, nenhuma venda de dado de demanda antes de política LGPD aprovada, nenhum blockchain.

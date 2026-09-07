@@ -5,8 +5,17 @@ Este documento sintetiza os "Jobs-to-be-Done" (JTBD) — as tarefas, metas e pro
 
 > **Como esses JTBD viram produto:** o modelo de negócio ajustado (propostas seladas, escrow via
 > PSP, nichos sequenciados — colecionáveis → moda circular → autopeças restrito) está em
-> [business-model.md](business-model.md); os limites regulatórios em
+> [business-model.md](business-model.md); a identidade e o diferencial em
+> [identity.md](identity.md); o plano de construção (diagnóstico do que falta, releases,
+> métricas) em [roadmap.md](roadmap.md); os limites regulatórios em
 > [../compliance/guardrails.md](../compliance/guardrails.md).
+>
+> **Onde cada job é atendido hoje × onde será:** os jobs de *busca* do comprador e de
+> *demanda qualificada* do vendedor já são atendidos (intenção → propostas seladas →
+> comparação); os jobs de *segurança* ("me proteja de fraudes", "garanta que serei pago")
+> existem no backend e chegam à tela na R1; os jobs *sociais* (ser reconhecido como
+> especialista, sentir-se inteligente pela concorrência) dependem de reputação por contrato
+> e radar de demanda (R2).
 
 ---
 

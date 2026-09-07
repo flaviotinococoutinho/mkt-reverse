@@ -194,7 +194,19 @@ npx vitest run
 npm run smoke:api   # exige API rodando
 ```
 
-## 📈 Roadmap (fases com gates — detalhes no business-model.md)
+## 📈 Roadmap
+
+> **Plano mestre em [docs/product/roadmap.md](docs/product/roadmap.md)** — diagnóstico
+> do que falta, métricas, e quatro releases com histórias e critérios de aceite:
+> **R1 Loop fechado** (contrato, notificações e intenção rica na UI, escrow mock) →
+> **R2 Confiança & retenção** (identidade real, link público do "quero", radar de demanda,
+> reputação, console admin) → **R3 Dinheiro real** (PSP Pix, funding assíncrono, Flyway,
+> ODR completa) → **R4 Crescimento**. A execução técnica está em
+> [docs/product/next-fronts.md](docs/product/next-fronts.md). As fases abaixo são os
+> gates de negócio ([business-model.md](docs/product/business-model.md)); R1+R2 fecham a
+> Fase 0, R3 é a Fase 1.
+
+**Fases de negócio** (gates — detalhes no business-model.md):
 
 ### Fase 0 — Validação de liquidez (atual)
 - [x] Fluxo core: intenção estruturada → propostas seladas → aceite
