@@ -16,7 +16,8 @@ custodia dinheiro). Leia, nesta ordem:
 1. [docs/product/identity.md](../docs/product/identity.md) — identidade, diferencial, anti-escopo
 2. [ARCHITECTURE.md](../ARCHITECTURE.md) — bounded contexts e máquina de estados do contrato
 3. [docs/compliance/guardrails.md](../docs/compliance/guardrails.md) — invariantes que o código DEVE manter
-4. [docs/product/next-fronts.md](../docs/product/next-fronts.md) — o que construir a seguir
+4. [docs/product/roadmap.md](../docs/product/roadmap.md) — o quê/por quê: diagnóstico, releases, histórias, critérios de aceite, definição de pronto
+5. [docs/product/next-fronts.md](../docs/product/next-fronts.md) — o como: sequência técnica e decisões por release
 
 - **Stack (travada em STACK.md):** Java 21, Spring Boot 3.2 (MVC + JPA),
   PostgreSQL 16 (JSONB + full-text nativo), RabbitMQ via Transactional Outbox,

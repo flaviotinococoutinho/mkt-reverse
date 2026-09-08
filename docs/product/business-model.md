@@ -124,6 +124,12 @@ A máquina de estados do contrato (contexto `agreement`, Fase 1) está especific
 **Regra transversal: cada aumento de intermediação (dinheiro, categoria, ticket, automação de
 decisão) só entra acompanhado do controle correspondente.**
 
+> **Fases × releases.** As fases abaixo são gates de negócio; a construção é planejada em
+> releases no [roadmap.md](roadmap.md): **R1 + R2** entregam a Fase 0 completa e mensurável
+> (loop fechado na UI com escrow mock, identidade real, console para medir o gate);
+> **R3** é a Fase 1 (PSP autorizado); **R4** abre a Fase 2. Dinheiro real (R3) não começa
+> antes do gate da Fase 0 medido.
+
 ### Fase 0 — Validação de liquidez (4–8 semanas, sem dinheiro na plataforma)
 "Classificados premium de demanda": intenção estruturada + propostas seladas + chat. Pagamento e
 entrega por conta das partes, com avisos claros. Um nicho (colecionáveis), 1–2 comunidades,

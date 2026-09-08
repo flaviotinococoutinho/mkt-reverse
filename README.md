@@ -111,8 +111,8 @@ Variáveis úteis:
 
 O MVP é deliberadamente enxuto — cada aumento de intermediação só entra acompanhado do controle correspondente (ver [docs/compliance/guardrails.md](docs/compliance/guardrails.md)):
 
-- **Sem e-mail** no MVP.
-- **Sem upload/URLs de imagem** no MVP — o schema tipado compensa.
+- **Sem e-mail** no MVP atual — verificação por e-mail (link mágico) e recuperação de senha entram na **R2** do [roadmap](docs/product/roadmap.md).
+- **Sem upload de imagem** no MVP atual — o schema tipado compensa; fotos (até 5, com limites) entram na **R2**, porque colecionáveis exigem.
 - **Sem dinheiro na plataforma** na Fase 0 — o fluxo transacional (escrow) entra na Fase 1, sempre via PSP autorizado.
 - Eventing assíncrono via **Transactional Outbox Light** (tabela `event_outbox` + scheduler), sem Debezium.
 - Infra local: **Docker Compose**.
@@ -194,7 +194,19 @@ npx vitest run
 npm run smoke:api   # exige API rodando
 ```
 
-## 📈 Roadmap (fases com gates — detalhes no business-model.md)
+## 📈 Roadmap
+
+> **Plano mestre em [docs/product/roadmap.md](docs/product/roadmap.md)** — diagnóstico
+> do que falta, métricas, e quatro releases com histórias e critérios de aceite:
+> **R1 Loop fechado** (contrato, notificações e intenção rica na UI, escrow mock) →
+> **R2 Confiança & retenção** (identidade real, link público do "quero", radar de demanda,
+> reputação, console admin) → **R3 Dinheiro real** (PSP Pix, funding assíncrono, Flyway,
+> ODR completa) → **R4 Crescimento**. A execução técnica está em
+> [docs/product/next-fronts.md](docs/product/next-fronts.md). As fases abaixo são os
+> gates de negócio ([business-model.md](docs/product/business-model.md)); R1+R2 fecham a
+> Fase 0, R3 é a Fase 1.
+
+**Fases de negócio** (gates — detalhes no business-model.md):
 
 ### Fase 0 — Validação de liquidez (atual)
 - [x] Fluxo core: intenção estruturada → propostas seladas → aceite
