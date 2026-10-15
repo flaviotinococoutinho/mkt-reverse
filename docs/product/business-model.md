@@ -1,187 +1,145 @@
-# QueroJá — Modelo de Negócio (versão ajustada)
+# QueroJá: modelo de negócio
 
-> Este documento substitui a proposta original após a pesquisa de viabilidade do marketplace
-> reverso C2B. Registra **o que mudou, por quê, e as regras que o produto e o código devem
-> respeitar**. Complementa: [vision.md](vision.md) (JTBD) e
-> [../compliance/guardrails.md](../compliance/guardrails.md) (limites regulatórios).
+Este documento registra o modelo de negócio e as decisões de escopo do marketplace reverso C2B. Os benefícios comerciais e os limites das fases são hipóteses a validar no piloto. As referências legais registradas no plano dependem de análise aplicável à operação antes do lançamento.
 
----
+Consulte a [visão do produto](vision.md), os [limites de operação](../compliance/guardrails.md) e o [roadmap](roadmap.md).
 
-## 1. Tese
+## 1. Hipótese de mercado
 
-Marketplace reverso funciona para **produtos físicos raros, únicos ou de baixo giro** — o único
-recorte em que as quatro forças que mataram os homólogos (latência, custo de proposta, seleção
-adversa, desintermediação) se invertem parcialmente:
+O recorte inicial é o de produtos físicos raros, únicos ou de baixo giro. O plano testa três hipóteses:
 
-- A **latência é tolerada**: quem procura um item há meses espera 72h por propostas.
-- O **custo de proposta é aceitável**: o vendedor já tem o item em estoque parado.
-- A **concorrência não é só por preço**: estado, autenticidade e procedência pesam mais.
+- Quem já procura um item há meses aceita esperar até 72 horas por propostas.
+- Vendedores com estoque parado aceitam o custo de responder a uma intenção de compra.
+- Estado, autenticidade e procedência influenciam a escolha junto com o preço.
 
-**O concorrente verdadeiro não é o Mercado Livre.** O mercado-alvo já existe e é líquido — vive
-em grupos de WhatsApp, fóruns e balcões, sem busca estruturada, sem reputação portátil, sem
-garantia de pagamento e com fraude endêmica. O posicionamento é **formalizar um mercado
-informal**, não roubar share de marketplace de catálogo.
+O canal inicial são comunidades que negociam em grupos de WhatsApp, fóruns e balcões. A proposta é organizar a demanda, comparar ofertas e registrar o acordo. Liquidez, incidência de fraude e disposição para pagar ainda precisam de medição por nicho. O plano não pressupõe que essas comunidades deixem de usar marketplaces de catálogo.
 
-## 2. Valor criado
+## 2. Valor a validar
 
-1. **Inversão do custo de busca** — o custo de encontrar transfere-se de quem procura (garimpo)
-   para quem tem incentivo econômico de arcar com ele (vendedor com estoque parado).
-2. **Price discovery** — propostas concorrentes formam preço onde não existe tabela.
-3. **Liquidez para dead stock** — motor econômico do lado da oferta; justifica take rate maior
-   que o de um classificado.
-4. **Demand intelligence** — o agregado de intenções de compra é um ativo único; segunda linha
-   de receita (assinatura de feed de demanda), **somente agregado/anonimizado e após política
-   LGPD aprovada**.
-5. **Confiança como cunha** — escrow + reputação bilateral contra o habitat atual (Pix adiantado
-   no WhatsApp e torcida).
+| Mecanismo | Benefício esperado | Como avaliar |
+| --- | --- | --- |
+| Intenção estruturada | Reduzir o trabalho do comprador para localizar um item | Tempo até a primeira proposta e taxa de preenchimento da demanda |
+| Propostas concorrentes | Comparar preço e características sem depender de uma tabela de preços | Taxa de aceite e diferenças entre propostas |
+| Vendedores com estoque parado | Criar oportunidades de venda para itens de baixo giro | Participação e retenção dos vendedores |
+| Pagamento por PSP e reputação bilateral | Reduzir a exposição a descumprimento do acordo | Disputas, perdas e negociações concluídas |
+| Dados agregados de demanda | Oferecer uma assinatura de informações de demanda em fase posterior | Demanda comercial e análise de privacidade aprovada |
 
-O diferencial técnico-jurídico central é o **schema de atributos por categoria MCC**: o atributo
-tipado é a espinha probatória do contrato. "A peça proposta era `original=true, ano=2014` e
-chegou paralela/2011" é inadimplemento objetivo, arbitrável em minutos — disputas em texto livre
-são caras e subjetivas. É o ativo que barateia o custo mais caro do modelo (disputas).
+O schema de atributos por categoria MCC registra o objeto negociado. Por exemplo, `original=true` e `ano=2014` permitem comparar a oferta com o item recebido. O snapshot ajuda a organizar a evidência de uma disputa. Não determina, por si só, a validade jurídica do contrato nem o tempo de resolução.
 
-## 3. Os quatro ajustes estruturais (decisões vinculantes)
+## 3. Decisões de escopo
 
-### Ajuste 1 — Propostas seladas, não leilão aberto
-Leilão aberto de preço em C2C/C2B degrada a oferta e afasta especialistas (TaskRabbit encerrou
-lances abertos em 2014; GetNinjas colheu "leilão de quem aceita menos"; Priceline aposentou o
-Name Your Own Price). O QueroJá usa:
-- **Propostas seladas** — vendedor não vê o preço dos concorrentes.
-- **Ranking multiatributo** — preço total com frete, reputação, aderência ao schema, prazo,
-  política de devolução (critérios já mapeados no JTBD do comprador).
-- **Limite de propostas por intenção** (ex.: 7) — escassez preserva o valor de propor.
-- **Validade explícita da proposta** — proposta é oferta vinculante com prazo (CC art. 427;
-  CDC arts. 30/35 quando fornecedor habitual).
+### 3.1 Usar propostas seladas
 
-### Ajuste 2 — Escrow nasce terceirizado
-Custodiar valores caracteriza a plataforma como participante de arranjo de pagamento
-(Lei 12.865/2013; Circular 3.682/2013) e exige **autorização prévia** do BACEN
-(Res. BCB 80/2021, alterada pela 494/2025). Regra inegociável: **o dinheiro nunca transita em
-conta própria** — escrow-as-a-service de PSP autorizado, com a plataforma comandando apenas
-gatilhos de liberação.
+O vendedor não vê os preços dos concorrentes. A comparação considera preço total com frete, reputação, aderência aos atributos, prazo e política de devolução.
 
-### Ajuste 3 — Nichos sequenciados por densidade regulatória
-1. **Colecionáveis** (kickoff) — regulação leve, comunidade densa, dor aguda de garimpo.
-2. **Moda circular** (Fase 2) — risco dominante é falsificação de marca, mitigável.
-3. **Autopeças** (Fase 3, restrito) — maior densidade regulatória (Lei do Desmonte 12.977/2014,
-   CONTRAN 611/2016, leis estaduais, risco de receptação). Peças **novas** de estoque parado
-   primeiro; usadas somente de CDVs credenciados; itens de segurança usados **fora da taxonomia**.
+O plano limita as propostas por intenção, com referência inicial de sete, e exige validade explícita. A intenção é preservar o incentivo do vendedor a responder. Os efeitos desse limite precisam de medição no piloto.
 
-### Ajuste 4 — Sem blockchain/smart contracts no discurso de produto
-A trilha probatória imutável que blockchain promete já é entregue, para fins civis, por evento
-assinado com carimbo de tempo e hash (o outbox transacional é o embrião disso). Blockchain sai
-do roadmap e permanece, no máximo, como pesquisa.
+As experiências de TaskRabbit, GetNinjas e Priceline motivaram essa escolha no estudo inicial. Este documento não demonstra uma relação causal entre leilão aberto e o resultado dessas empresas.
+
+### 3.2 Terceirizar a custódia
+
+O dinheiro não deve transitar em conta própria da plataforma. A fase transacional prevê um PSP habilitado para o serviço contratado, com a plataforma enviando instruções de liberação ou reembolso.
+
+O plano registra a Lei 12.865/2013, a Circular 3.682/2013 e a Resolução BCB 80/2021, com menção à alteração 494/2025, como referências para revisão. O enquadramento e as autorizações exigidas dependem do serviço, do contrato e das regras aplicáveis. A contratação de um PSP não dispensa essa análise.
+
+### 3.3 Abrir nichos em sequência
+
+1. Começar por colecionáveis, com uma ou duas comunidades e oferta recrutada manualmente.
+2. Avaliar moda circular na Fase 2, incluindo autenticidade e medidas das peças.
+3. Avaliar autopeças na Fase 3. Começar por peças novas de estoque parado. O desenho para peças usadas prevê CDVs credenciados e exclui itens de segurança usados da taxonomia.
+
+O plano cita a Lei 12.977/2014, a Resolução CONTRAN 611/2016 e regras estaduais para revisão da vertical de autopeças. A habilitação de uma categoria depende dessa análise e dos controles de procedência.
+
+### 3.4 Retirar blockchain do roadmap de produto
+
+O projeto usa eventos, hashes e carimbos de tempo para registrar o histórico técnico do acordo. A suficiência dessa evidência para uma disputa depende do caso e da revisão jurídica. Blockchain fica restrito à pesquisa, sem promessa no produto.
 
 ## 4. Monetização
 
-| Fase | Mecanismo | Regra |
-|---|---|---|
-| 0 | Nenhum | Validar liquidez sem atrito; **taxa zero para propor** |
-| 1 | Take rate sobre transação concluída via escrow | Referência 8–15% conforme categoria/ticket; único e público |
-| 2+ | Destaque de proposta; assinatura de demand feed (agregado) | Somente após liquidez comprovada e parecer LGPD |
+| Fase | Mecanismo planejado | Condição |
+| --- | --- | --- |
+| 0 | Sem cobrança | Validar liquidez, sem taxa para propor |
+| 1 | Comissão sobre transação concluída pelo PSP | Referência de 8% a 15%, conforme categoria e valor, com taxa única e pública |
+| 2 em diante | Destaque de proposta e assinatura de dados agregados de demanda | Liquidez comprovada e análises de privacidade e tributação concluídas |
 
-**Nunca** cobrar do vendedor para ver ou responder intenções (modelo pay-per-lead do GetNinjas
-envenena o lado da oferta em mercado sem liquidez).
+A plataforma não cobra do vendedor para ver ou responder intenções. Essa decisão evita adicionar custo antes de demonstrar liquidez.
 
-O custo estrutural a precificar no take rate: **cada real de valor capturado aumenta a
-responsabilidade jurídica** — quanto mais a plataforma intermedeia (pagamento, chat, contrato,
-curadoria), mais a jurisprudência a trata como fornecedora solidária (CDC, linha do
-REsp 1.740.942/RS). Disputa é centro de custo core, não suporte.
+A comissão precisa cobrir pagamento, operação, perdas e disputas. O grau de intermediação também exige análise de responsabilidade. O plano registra o CDC e o REsp 1.740.942/RS para essa revisão, sem assumir que uma cláusula contratual elimina a responsabilidade da plataforma.
 
-## 5. Arquitetura contratual (camadas)
+## 5. Instrumentos contratuais planejados
 
-Princípio: **contratos em camadas, com a camada transacional gerada por máquina a partir do
-schema**. Nada é negociado em texto livre.
+A camada transacional deve usar os atributos estruturados, sem depender apenas de texto livre. A qualificação das partes e a eficácia das cláusulas exigem revisão antes da operação real.
 
-| Camada | Instrumento | Partes | Momento |
-|---|---|---|---|
-| 1 | Termos de Uso + Política de Privacidade | Plataforma ↔ todos | Cadastro |
-| 2 | Contrato de Intermediação do Vendedor (+ anexos por categoria: declaração de autenticidade; exigências Lei do Desmonte) | Plataforma ↔ vendedor | Habilitação para propor |
-| 3 | Contrato de compra e venda (a plataforma **não é parte**; é intermediadora e depositária de gatilhos) | Comprador ↔ vendedor | Aceite |
-| 4 | Termos de Escrow (mandato para reter/liberar mediante eventos objetivos) | Partes ↔ plataforma/PSP | Funding |
-| 5 | Política de Disputa (ODR) — etapa prévia **voluntária**, jamais renúncia de foro do consumidor (CDC art. 51) | Todos | Por referência |
+| Camada | Instrumento | Relação prevista | Momento |
+| --- | --- | --- | --- |
+| 1 | Termos de uso e política de privacidade | Plataforma e usuários | Cadastro |
+| 2 | Contrato de intermediação do vendedor e anexos por categoria | Plataforma e vendedor | Habilitação para propor |
+| 3 | Contrato de compra e venda | Comprador e vendedor, com o papel da plataforma definido nos termos | Aceite |
+| 4 | Termos de custódia, liberação e reembolso | Partes, plataforma e PSP, conforme o contrato do provedor | Pagamento |
+| 5 | Política de resolução de disputas | Participantes da transação | Referência nos demais termos |
 
-Três decisões tornam a camada 3 "eficiente sem ser solta":
-1. **Proposta é oferta vinculante com prazo** — dentro do prazo, o aceite forma o contrato
-   automaticamente, sem "confirmação" posterior do vendedor (onde nasce o no-show). Vendedor que
-   não honra sofre penalidade objetiva (multa via retenção futura + rebaixamento + suspensão).
-2. **O schema de atributos é o objeto do contrato** — snapshot imutável no aceite (proposta +
-   versão do schema + termos, hash + carimbo de tempo). Disputa vira conferência de campos.
-3. **Funding do escrow é condição suspensiva de eficácia** (CC art. 125) — contrato existe no
-   aceite, mas só obriga entrega com dinheiro retido. Ataca a fraude nº 1 do informal ("o Pix
-   que não vem").
+O desenho contratual registra estas decisões:
 
-Cláusulas complementares: non-circumvention na camada 2 (12 meses; enforcement real é econômico
-— garantia/reputação só existem dentro); política de cancelamento simétrica e tabelada;
-limitação de responsabilidade redigida com sobriedade (contra consumidor tende a ser lida como
-abusiva — não construir o modelo financeiro sobre ela).
+1. A proposta tem prazo de validade. O aceite dentro desse prazo deve formar o acordo sem nova confirmação do vendedor. Penalidades por descumprimento dependem de revisão e de regras publicadas.
+2. O aceite gera um snapshot da proposta, da versão do schema e dos termos, acompanhado de hash e carimbo de tempo.
+3. A entrega só é exigida após a confirmação de retenção do pagamento pelo PSP. A redação dessa condição e seus efeitos precisam de revisão jurídica.
 
-A máquina de estados do contrato (contexto `agreement`, Fase 1) está especificada em
-[ARCHITECTURE.md](../../ARCHITECTURE.md).
+O estudo cita o artigo 427 e o artigo 125 do Código Civil, os artigos 30 e 35 do CDC e a proteção de acesso ao foro do consumidor no artigo 51 do CDC. Essas referências não substituem a análise do contrato final. A etapa de resolução de disputas deve ser voluntária, sem renúncia aos direitos aplicáveis.
 
-## 6. Plano de kickoff faseado
+Permanecem no desenho uma cláusula de não desintermediação por 12 meses, uma política de cancelamento simétrica e regras de responsabilidade. Validade, proporcionalidade e execução dessas cláusulas são pendências da revisão jurídica. A proteção da transação e a reputação são incentivos para concluir a negociação dentro da plataforma.
 
-**Regra transversal: cada aumento de intermediação (dinheiro, categoria, ticket, automação de
-decisão) só entra acompanhado do controle correspondente.**
+A máquina de estados do contexto `agreement` está descrita em [ARCHITECTURE.md](../../ARCHITECTURE.md).
 
-> **Fases × releases.** As fases abaixo são gates de negócio; a construção é planejada em
-> releases no [roadmap.md](roadmap.md): **R1 + R2** entregam a Fase 0 completa e mensurável
-> (loop fechado na UI com escrow mock, identidade real, console para medir o gate);
-> **R3** é a Fase 1 (PSP autorizado); **R4** abre a Fase 2. Dinheiro real (R3) não começa
-> antes do gate da Fase 0 medido.
+## 6. Fases de validação
 
-### Fase 0 — Validação de liquidez (4–8 semanas, sem dinheiro na plataforma)
-"Classificados premium de demanda": intenção estruturada + propostas seladas + chat. Pagamento e
-entrega por conta das partes, com avisos claros. Um nicho (colecionáveis), 1–2 comunidades,
-oferta semeada manualmente (concierge).
-**Gate:** ≥60% das intenções com ≥3 propostas em 48h; ≥25% terminando em aceite declarado; NPS
-de vendedor não negativo.
+Cada aumento de intermediação precisa do controle correspondente. As fases são critérios de negócio; as releases do [roadmap](roadmap.md) organizam a construção.
 
-### Fase 1 — Escrow terceirizado (MVP transacional)
-PSP autorizado, Pix/cartão, teto de ticket (ex.: R$ 3.000 — acima disso a plataforma se declara
-indisponível), janela de inspeção 72h, ODR humana, take rate único e público. KYC leve
-universal; tetos por usuário novo.
-**Gate:** disputa <3% do GMV; custo médio de disputa <25% do take médio; vazamento em queda;
-unit economics ≥ 0 sem CAC.
+| Fase | Releases previstas | Resultado esperado |
+| --- | --- | --- |
+| 0 | R1 e R2 | Fluxo completo na interface com custódia simulada, identidade e medição do piloto |
+| 1 | R3 | Pagamento real por PSP contratado |
+| 2 | R4 | Segunda vertical e mecanismos de crescimento |
 
-### Fase 2 — Segunda vertical + confiança paga
-Moda circular; autenticação por parceiro (opcional, paga, acima de um ticket); KYB para
-vendedores profissionais; demand feed **agregado** (após parecer LGPD); parecer tributário
-formal (ICMS estadual + transição IBS/CBS para plataformas, LC 214/2025) antes de escalar GMV.
+### Fase 0: validar liquidez
 
-### Fase 3 — Autopeças (desenho restritivo)
-Novas de estoque parado → usadas só de CDVs credenciados (campos de NF e etiqueta de
-rastreabilidade obrigatórios no schema; checagem cadastral no Detran) → itens de segurança
-usados bloqueados nacionalmente. Avaliar seguro de proteção da transação embutido.
+O período de referência é de quatro a oito semanas, sem dinheiro na plataforma. O piloto usa intenção estruturada, propostas seladas e chat. Pagamento e entrega ficam a cargo das partes, com essa condição informada aos participantes.
 
-## 7. Pontos de atenção por nicho
+O nicho inicial é colecionáveis, com uma ou duas comunidades e recrutamento manual de vendedores. Os critérios de avanço são:
 
-**Colecionáveis:** autenticidade (declaração contratual + disputa pró-comprador; laudo/grading
-por parceiro acima de um ticket — referência: eBay Authenticity Guarantee); PLD/FT (teto de
-ticket, monitoração de pares recorrentes); PI (atributo obrigatório "oficial/licenciado");
-itens restritos (fósseis, taxidermia, CITES/IBAMA) resolvidos **por ausência na taxonomia**.
-Atributos obrigatórios: originalidade, estado padronizado, completude, edição/ano, grading.
+- Pelo menos 60% das intenções com três ou mais propostas em 48 horas.
+- Pelo menos 25% das intenções terminando em aceite declarado.
+- NPS do vendedor não negativo.
 
-**Moda circular:** falsificação de luxo (marca lesada é grande e litigante); peças íntimas e
-infantis com regras próprias ou exclusão inicial; direito de arrependimento (CDC art. 49) — o
-contrato deixa claro quem arca com frete reverso e que a janela de inspeção e o prazo legal
-correm juntos. Maior causa de disputa é **medida**, não defeito: tamanho com medidas reais
-obrigatório.
+### Fase 1: operar com PSP
 
-**Autopeças:** ver Fase 3. Peça usada sem procedência não é só risco civil — é exposição a
-receptação. Detrans com vitrines de peças rastreadas (ex.: "Peça Legal"/ES) são parceiros em
-potencial.
+O plano prevê Pix e cartão, teto inicial de transação de R$ 3.000, janela de inspeção de 72 horas, resolução humana de disputas e comissão única e pública. Prevê também verificação de identidade e limites para usuários novos. Os detalhes dependem do PSP, dos contratos e das análises aplicáveis.
 
-**Transversal — preço-âncora do comprador:** faixa sugerida por categoria a partir do histórico
-+ aviso "intenções nessa faixa recebem em média X propostas" (âncora irreal mata fill rate e
-humilha vendedores).
+Os critérios de avanço são disputa inferior a 3% do GMV, custo médio de disputa inferior a 25% da comissão média e resultado por transação não negativo antes do custo de aquisição. A proporção de negociações concluídas fora da plataforma deve cair.
 
-## 8. Métricas que governam o modelo
+### Fase 2: avaliar moda circular
 
-| Métrica | Por quê |
-|---|---|
-| Fill rate (intenções com ≥3 propostas em 48h) | O modelo morre de latência |
-| Taxa de aceite | Qualidade do matching |
-| Taxa e custo de disputa | O centro de custo core; teto para o take rate |
-| Vazamento (aceites fora vs. dentro) | Corrosão silenciosa do take |
-| NPS do vendedor | O lado da oferta é o mais fácil de envenenar |
+O plano prevê autenticação opcional por parceiro acima de um valor de transação, verificação de vendedores profissionais e informações agregadas de demanda. A escala depende das análises de privacidade e tributação. O estudo registra ICMS, a transição de IBS e CBS e a LC 214/2025 como temas dessa revisão.
+
+### Fase 3: avaliar autopeças
+
+O desenho começa por peças novas de estoque parado. Peças usadas dependem de CDVs credenciados, campos de nota fiscal e etiqueta de rastreabilidade no schema, além de consulta cadastral ao Detran. Itens de segurança usados ficam excluídos. Seguro de proteção da transação permanece como opção a avaliar.
+
+## 7. Controles a definir por nicho
+
+| Nicho | Controles planejados e questões a validar |
+| --- | --- |
+| Colecionáveis | Declaração de autenticidade, orientação pró-comprador nas disputas conforme o desenho inicial, laudo por parceiro acima de um valor, limites de transação e acompanhamento de pares recorrentes. Definir campos de originalidade, estado, completude, edição, ano e grading. Excluir categorias restritas da taxonomia após revisão das regras aplicáveis. O estudo menciona eBay Authenticity Guarantee, CITES e IBAMA como referências. |
+| Moda circular | Medidas reais obrigatórias, autenticidade e critérios para inclusão ou exclusão de peças íntimas e infantis. Definir devolução e frete reverso. Validar a relação entre a janela de inspeção e o direito de arrependimento, quando aplicável. O estudo cita o artigo 49 do CDC. |
+| Autopeças | Verificar procedência, credenciamento e rastreabilidade. Avaliar parceria com iniciativas de peças rastreadas, como a referência "Peça Legal" do Espírito Santo. |
+
+A indicação de faixa de preço por categoria depende de histórico suficiente. Uma mensagem como "intenções nessa faixa recebem em média X propostas" só pode usar medições reais.
+
+## 8. Métricas de decisão
+
+| Métrica | Uso |
+| --- | --- |
+| Intenções com três ou mais propostas em 48 horas | Medir disponibilidade de oferta |
+| Taxa de aceite | Avaliar adequação das propostas à demanda |
+| Taxa e custo de disputa | Estimar perdas e custo de operação |
+| Aceites concluídos fora e dentro da plataforma | Medir desintermediação |
+| NPS do vendedor | Acompanhar a avaliação do lado da oferta |

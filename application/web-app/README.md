@@ -1,198 +1,84 @@
-# O Leilão — Web App (Frontend)
+# Frontend do QueroJá
 
-Aplicação web React do **QueroJá / Marketplace Reverso (C2B)**.
+Interface de comprador e vendedor em React, TypeScript e Vite. A aplicação consome a API do gateway em `/api/v1`.
 
-## 🚀 Quick Start
+## Executar em desenvolvimento
 
-### Pré-requisitos
+Use Node.js `^20.19.0 || >=22.12.0`, conforme o requisito do Vite no `package-lock.json`. O CI usa Node 22. Instale as dependências com npm para preservar o lockfile do projeto.
 
-- Node.js 18+ 
-- npm ou yarn
-- Backend (api-gateway) rodando em `http://localhost:8081`
-
-### Instalação
+Primeiro, inicie o backend conforme o [guia da raiz](../../README.md#executar-localmente). Depois, a partir da raiz:
 
 ```bash
 cd application/web-app
-npm install
-```
-
-### Configuração
-
-```bash
-# Copiar arquivo de ambiente
-cp .env.example .env
-
-# Editar se necessário (o padrão usa `/api/v1` + proxy do Vite)
-nano .env
-
-Variáveis úteis:
-
-- `VITE_API_URL` (default: `/api/v1`)
-- `VITE_API_TARGET` (default: `http://localhost:8081`)
-```
-
-### Desenvolvimento
-
-```bash
+npm ci
 npm run dev
 ```
 
-A aplicação estará disponível em `http://localhost:5173`
+Abra `http://localhost:5173`. A porta é fixa; o Vite falha se ela já estiver ocupada.
 
-### Build para Produção
+## Configurar o destino da API
+
+Dentro de `application/web-app`, crie o arquivo local de configuração:
 
 ```bash
+cp .env.example .env
+```
+
+As variáveis disponíveis são:
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `VITE_API_URL` | `/api/v1` | URL base usada pelo cliente no navegador |
+| `VITE_API_TARGET` | `http://localhost:8081` | Destino do proxy do servidor de desenvolvimento |
+
+O proxy de [vite.config.ts](vite.config.ts) encaminha `/api`, `/graphql` e `/actuator` ao backend. Reinicie o servidor Vite depois de alterar o ambiente.
+
+## Gerar e verificar o build
+
+Execute neste diretório:
+
+```bash
+npm run lint
+npm test
 npm run build
 npm run preview
 ```
 
-## 📁 Estrutura
+O `preview` serve o build local. Ele não configura um proxy de API para produção. O ambiente de publicação precisa encaminhar `/api/v1` ao gateway ou definir `VITE_API_URL` no build.
 
-```
-src/
-├── components/       # Componentes reutilizáveis
-│   └── ui/          # Componentes UI base (Button, Input, etc.)
-├── pages/           # Páginas da aplicação
-│   ├── auth/        # Login, Register
-│   └── buyer/       # Dashboard, CreateRequest, SourcingEventDetail
-├── services/        # Serviços de API
-│   ├── api.ts       # Cliente Axios configurado
-│   └── sourcingService.ts  # Serviços de sourcing
-├── context/         # Contextos React
-│   └── AuthContext.tsx
-├── types/           # Definições TypeScript (se necessário)
-├── layouts/          # Layouts (Header, Footer, etc.)
-└── assets/          # Imagens, fontes, etc.
-```
+## Executar os smokes
 
-## 🔑 Funcionalidades Implementadas
+Os scripts disponíveis estão em [package.json](package.json).
 
-### ✅ Fase 1: Estruturação do Frontend
-- [x] Inicialização do projeto React + Vite + TypeScript
-- [x] Configuração do TailwindCSS com identidade visual
-- [x] Páginas de Login e Register
-- [x] Contexto de Autenticação (AuthContext)
-- [x] Componentes UI base (Button, Input)
+| Comando | O que verifica | Requisito |
+|---|---|---|
+| `npm run smoke:ui` | Declaração das rotas de comprador e vendedor | Código local |
+| `npm run smoke:session` | Tratamento de sessão inválida no frontend | Código local |
+| `npm run smoke:api:auth` | Cadastro, login e fluxo de solicitação e proposta | API e banco ativos |
+| `npm run smoke:api:auth:invalid` | Rejeição de token inválido | API e banco ativos |
+| `npm run smoke:api:report-check` | Fluxo de API e limites definidos para o relatório | API e banco ativos |
+| `npm run smoke:mvp` | Smoke de API, rotas e detalhe de proposta | API e banco ativos |
 
-### ✅ Fase 2: Fluxo do Comprador (Parcial)
-- [x] Dashboard do Comprador
-- [x] Formulário de Criação de Solicitação
-- [x] Visualização de Detalhes da Solicitação
-- [x] Listagem de Propostas
-- [x] Aceite de Proposta
+O smoke de API aguarda o endpoint de saúde antes de executar o fluxo. Configure o cenário pelas variáveis abaixo:
 
-### 🚧 Em Progresso
-- [x] Fluxo do Vendedor (Dashboard, Oportunidades, Envio de Proposta)
-- [x] Integração com User Management (auth/login + auth/register)
-- [ ] Validação de formulários
-- [ ] Tratamento de erros
-- [x] Smoke test automatizado do fluxo crítico (API)
+| Variável | Padrão ou efeito |
+|---|---|
+| `API_BASE_URL` | `http://localhost:8081/api/v1` |
+| `API_HEALTH_URL` | Derivado de `API_BASE_URL` |
+| `SMOKE_STARTUP_TIMEOUT_MS` | `45000` |
+| `SMOKE_STARTUP_POLL_MS` | `1500` |
+| `SMOKE_INCLUDE_ATTRIBUTES=1` | Inclui atributos tipados no payload; por padrão, o smoke os omite |
+| `SMOKE_REPORT_PATH` | Caminho do relatório; o script de relatório usa `./build/smoke-report.json` |
+| `SMOKE_REPORT_INPUT` | Arquivo lido pelo verificador de relatório |
+| `SMOKE_MAX_TOTAL_MS` | `60000` no verificador de relatório |
+| `SMOKE_MAX_STEP_MS` | `25000` no verificador de relatório |
 
-## 🎨 Identidade Visual
+Se a API recusar atributos com `VALIDATION_ERROR`, use `SMOKE_INCLUDE_ATTRIBUTES=0 npm run smoke:api:report-check` para isolar o problema. Para testar a autorização, use o cenário de token inválido da tabela.
 
-- **Tema:** "O Leilão"
-- **Fontes:** Instrument Sans, Instrument Serif, Spline Sans Mono
-- **Cores:**
-  - Ink (background): #0A0E14
-  - Paper (card background): rgba(255, 247, 237, 0.06)
-  - Stroke (border): rgba(233, 230, 223, 0.16)
-  - Citrus (accent): #FFB000
-  - Mint (success): #62FFB8
-  - Danger (error): #FF4D6D
+## Autenticação e limites do MVP
 
-## 🔌 Integração com Backend
+As telas de cadastro e login usam `POST /api/v1/auth/register` e `POST /api/v1/auth/login`. O contexto de autenticação guarda `token` e `user` no `localStorage`.
 
-A aplicação consome a API do api-gateway:
+O MVP não envia e-mails. Quando o cadastro não informa um e-mail, o frontend deriva do telefone um identificador no domínio `mvp.local`. O [roadmap](../../docs/product/roadmap.md) descreve a evolução de identidade e recuperação de acesso.
 
-- **Base URL:** `/api/v1` (recomendado, via proxy/reverse-proxy)
-- **Autenticação:** Bearer Token (JWT)
-- **Formato:** HAL JSON para listas
-
-### Auth (User Management)
-
-As telas de login/cadastro usam os endpoints do **user-management** expostos no api-gateway:
-
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-
-**Importante (MVP):** não enviamos e-mails. Quando o usuário não preenche e-mail, o frontend gera um identificador estável `@mvp.local` derivado do telefone/WhatsApp.
-
-### Endpoints Utilizados
-
-- `POST /api/v1/sourcing-events` - Criar solicitação
-- `GET /api/v1/sourcing-events` - Listar solicitações
-- `GET /api/v1/sourcing-events/{id}` - Detalhes de solicitação
-- `GET /api/v1/sourcing-events/{id}/responses` - Listar propostas
-- `POST /api/v1/sourcing-events/{id}/responses` - Enviar proposta
-- `POST /api/v1/sourcing-events/{eventId}/responses/{responseId}/accept` - Aceitar proposta
-- `GET /api/v1/opportunities` - Buscar oportunidades (vendedores)
-
-## 🧪 Testes
-
-```bash
-npm run lint
-npm run test
-npm run build
-npm run smoke:api
-npm run smoke:api:auth
-npm run smoke:api:auth:invalid
-npm run smoke:api:report-file
-npm run smoke:api:report-check
-npm run smoke:session
-npm run smoke:ui
-npm run smoke:mvp
-```
-
-> `smoke:api` requer `api-gateway` ativo em `http://localhost:8081` (ou `API_BASE_URL` customizado).
-> O script aguarda automaticamente a saúde da API antes de iniciar o fluxo.
-> `smoke:ui` valida rapidamente (sem backend) se as rotas críticas buyer/supplier continuam declaradas em `src/App.tsx`.
-> `smoke:api:auth:invalid` força token inválido e valida rejeição (401/403) em endpoint protegido.
-> `smoke:session` valida higiene de sessão do frontend (guard rails de token/expiração).
-> `smoke:api:report-file` gera relatório JSON persistido (default: `./build/smoke-report.json`).
-> `smoke:api:report-check` executa smoke + valida SLA/status final no relatório.
-> `smoke:mvp` orquestra um check consolidado (API crítica com auth + rotas UI + hidratação por query string na tela de detalhe) para validar rapidamente o MVP fim a fim.
-
-Variáveis opcionais do smoke:
-- `API_BASE_URL` (default: `http://localhost:8081/api/v1`)
-- `API_HEALTH_URL` (default derivado de `API_BASE_URL`, ex.: `http://localhost:8081/actuator/health`)
-- `SMOKE_STARTUP_TIMEOUT_MS` (default: `45000`)
-- `SMOKE_STARTUP_POLL_MS` (default: `1500`)
-- `SMOKE_INCLUDE_ATTRIBUTES=1` para enviar atributos tipados no payload (padrão: sem atributos para reduzir falsos negativos em ambientes com schema estrito)
-- `SMOKE_AUTH=1` para incluir registro+login de buyer/supplier e validar endpoints de autenticação do user-management antes do fluxo de sourcing
-- Atalho: `npm run smoke:api:auth` já executa o smoke com `SMOKE_AUTH=1`
-- `SMOKE_REPORT_PATH` caminho do relatório JSON persistido (default: `./build/smoke-report.json`)
-- `SMOKE_REPORT_INPUT` caminho do relatório para validação (default: mesmo valor de `SMOKE_REPORT_PATH`)
-- `SMOKE_MAX_TOTAL_MS` SLA do fluxo completo (default: `60000`)
-- `SMOKE_MAX_STEP_MS` SLA por etapa (default: `25000`)
-
-### Runbook rápido (falhas comuns)
-
-- **API indisponível (`ECONNREFUSED` / timeout)**
-  - Garanta backend local ativo (`make dev-local-up` + `spring-boot:run`) e health `UP` em `http://localhost:8081/actuator/health`.
-
-- **`VALIDATION_ERROR` por schema estrito de atributos**
-  - Rode sem atributos tipados para isolar problema: `SMOKE_INCLUDE_ATTRIBUTES=0 npm run smoke:api:report-check`.
-  - Quando necessário, ajuste payload para atributos válidos da categoria.
-
-- **`401/403` por token inválido/expirado**
-  - Regere token via fluxo autenticado: `npm run smoke:api:auth`.
-  - Para cenário negativo esperado, use: `npm run smoke:api:auth:invalid`.
-
-## 📝 Notas de Desenvolvimento
-
-- A autenticação persiste `token` e `user` no `localStorage` (MVP) para simplificar o fluxo.
-- Para testar o fluxo completo, inicie o backend primeiro:
-  ```bash
-  cd /Users/flaviocoutinho/development/mkt-reverse
-  make dev-local-up
-  mvn -pl application/api-gateway -am install -DskipTests
-  mvn -pl application/api-gateway spring-boot:run -Dspring-boot.run.profiles=local
-  ```
-- Os dados de usuário são persistidos no localStorage para facilitar testes
-
-## 🔗 Links Relacionados
-
-- [Backend API Documentation](../../README.md)
-- [AGENTS.md](../../AGENTS.md)
-- [User Journey Flows](../../user_journey_flows.md)
+Consulte a [arquitetura](../../ARCHITECTURE.md) para os limites do contrato, do escrow simulado e das notificações.

@@ -1,172 +1,43 @@
-# 🐳 Quick Start - mkt-reverse Development Environment
+# Executar a infraestrutura local
 
-> Ambiente completo com Docker Compose para desenvolvimento local
+O arquivo Compose mantido é [docker-compose.yml](../docker-compose.yml), na raiz. Execute os comandos deste guia a partir da raiz do repositório.
 
----
+## Iniciar as dependências do backend
 
-## 🚀 Início Rápido
+Com Docker e Compose v2 instalados:
 
 ```bash
-# 1. Clonar e entrar no projeto
-cd mkt-reverse
-
-# 2. Iniciar todos os serviços
-docker compose -f docker-compose.local.yml up -d
-
-# 3. Acessar os serviços
+docker compose up -d postgres-main rabbitmq redis
+docker compose ps
 ```
 
----
+O Compose inicia os serviços nomeados explicitamente, mesmo quando eles pertencem a um profile. Para ver a configuração resolvida antes de iniciar os containers, execute `docker compose --profile local config`.
 
-## 📋 Serviços e Portas
+| Serviço | Porta no host | Uso |
+|---|---|---|
+| `postgres-main` | `5432` | Banco `marketplace_main` |
+| `rabbitmq` | `5672` e `15672` | Broker e console de administração |
+| `redis` | `6379` | Dependência Redis |
 
-| Serviço | Porta | URL | Credenciais |
-|---------|-------|-----|-------------|
-| **API Gateway** | 8081 | http://localhost:8081 | - |
-| **Frontend Web** | 5173 | http://localhost:5173 | - |
-| **PostgreSQL** | 5432 | localhost:5432 | user: marketplace_user / pass: marketplace_pass |
-| **RabbitMQ** | 5672 / 15672 | localhost:15672 | user: marketplace / pass: marketplace_pass |
-| **Redis** | 6379 | localhost:6379 | - |
-| **Mailhog** | 8025 | http://localhost:8025 | - |
-| **Adminer** | 8080 | http://localhost:8080 | - |
-| **Jaeger** | 16686 | http://localhost:16686 | - |
+As credenciais de laboratório estão no Compose e no [profile local da API](../application/api-gateway/src/main/resources/application-local.yml). O PostgreSQL monta `docker/postgres/init.sql` e `docker/postgres/seed.sql` na primeira inicialização do volume. Alterar esses scripts não reaplica o conteúdo a um volume já inicializado.
 
----
+## Iniciar a aplicação
 
-## 🔑 Credenciais de Teste
+Siga o [procedimento do backend e do frontend](../README.md#executar-localmente). O guia executa Maven e Vite no host, com a infraestrutura em containers.
 
-| Usuário | Email | Senha | Tipo |
-|---------|-------|-------|------|
-| João Silva | buyer@test.com | password123 | BUYER |
-| Maria Santos | buyer2@test.com | password123 | BUYER |
-| Carlos Oliveira | supplier@test.com | password123 | SUPPLIER |
-| Ana Pereira | supplier2@test.com | password123 | SUPPLIER |
+O Compose também declara `api-gateway` e `web-app`, mas a existência desses serviços não comprova que o build em container esteja validado. Para investigar essa variante, confira os Dockerfiles e as dependências dos serviços antes de executá-la.
 
----
+## Consultar logs e parar os serviços
 
-## 📝 Dados de Teste Incluídos
-
-O banco é populado automaticamente com:
-
-- **4 usuários** (2 buyers + 2 suppliers)
-- **4 organizações**
-- **5 eventos** em diferentes status
-- **4 propostas** de suppliers
-- **Configurações do sistema**
-
----
-
-## 🔧 Comandos Úteis
-
-### Iniciar ambiente
 ```bash
-# Todos os serviços
-docker compose -f docker-compose.local.yml up -d
-
-# Apenas backend
-docker compose -f docker-compose.local.yml up postgres-main rabbitmq redis api-gateway
-
-# Com rebuild
-docker compose -f docker-compose.local.yml up --build
+docker compose logs -f postgres-main rabbitmq redis
+docker compose --profile local --profile dev --profile mvp down
 ```
 
-### Ver logs
-```bash
-# Todos os serviços
-docker compose -f docker-compose.local.yml logs -f
+O comando `down` mantém os volumes. Se quiser apagar os dados do laboratório, acrescente `-v` ao comando. Essa opção remove os volumes do projeto.
 
-# Serviço específico
-docker compose -f docker-compose.local.yml logs -f api-gateway
-docker compose -f docker-compose.local.yml logs -f web-app
-```
+## Limites conhecidos
 
-### Acessar container
-```bash
-# API Gateway
-docker exec -it mkt-api-gateway /bin/bash
-
-# PostgreSQL
-docker exec -it mkt-postgres psql -U marketplace_user -d marketplace_main
-```
-
-### Parar ambiente
-```bash
-# Parar todos
-docker compose -f docker-compose.local.yml down
-
-# Parar e remover volumes (reset completo)
-docker compose -f docker-compose.local.yml down -v
-```
-
-### Verificar status
-```bash
-docker compose -f docker-compose.local.yml ps
-```
-
----
-
-## 🎯 Fluxos de Teste
-
-### 1. Login como Buyer
-```
-1. Acessar http://localhost:5173
-2. Fazer login com buyer@test.com / password123
-3. Criar nova solicitação (Create Request)
-4. Publicar evento
-```
-
-### 2. Login como Supplier
-```
-1. Acessar http://localhost:5173
-2. Fazer login com supplier@test.com / password123  
-3. Buscar oportunidades
-4. Enviar proposta
-```
-
-### 3. Acceptar Proposta (como Buyer)
-```
-1. Login como buyer@test.com
-2. Ir para Dashboard > Minhas Solicitações
-3. Abrir evento > Ver Propostas
-4. Acceptar uma proposta
-```
-
----
-
-## 🐛 Troubleshooting
-
-### PostgreSQL não conecta
-```bash
-# Reiniciar PostgreSQL
-docker restart mkt-postgres
-
-# Ver logs
-docker logs mkt-postgres
-```
-
-###_API Gateway não sobe_
-```bash
-# Limpar build e rebuild
-docker compose -f docker-compose.local.yml build --no-cache api-gateway
-docker compose -f docker-compose.local.yml up -d api-gateway
-```
-
-### Frontend lento
-```bash
-# Remover node_modules e reinstalar
-docker exec -it mkt-web-app rm -rf node_modules
-docker restart mkt-web-app
-```
-
----
-
-## 📚 Documentação
-
-- [Setup Guide](../docs/SETUP.md)
-- [Requirements Analysis](../docs/requirements.md)
-- [Risk Analysis](../docs/analysis/risk-analysis.md)
-- [Complexity Analysis](../docs/analysis/complexity-analysis.md)
-
----
-
-**Built with ❤️ for the mkt-reverse project**
+- `docker-compose.local.yml` e `docker-compose.dev.yml` não estão no repositório. Os alvos Make que os referenciam precisam ser corrigidos antes do uso.
+- O Compose atual não declara Mailhog, MinIO, Kafka ou OpenSearch. As referências a esses serviços em alvos antigos do Makefile não descrevem o ambiente disponível.
+- O guia não pressupõe contas de teste ou quantidades de registros no seed. Cadastre os usuários pela interface ou use o smoke autenticado descrito no README da raiz.

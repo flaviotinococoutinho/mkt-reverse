@@ -8,10 +8,10 @@
 
 ## O que é o projeto
 
-**QueroJá** — marketplace reverso **B2C** para produtos físicos raros/únicos/
+**QueroJá** — marketplace reverso **C2B** para produtos físicos raros/únicos/
 baixo giro: comprador publica a intenção, vendedores respondem com **propostas
-seladas**, o aceite abre um **contrato com escrow via PSP** (a plataforma nunca
-custodia dinheiro). Leia, nesta ordem:
+seladas**, o aceite abre um contrato. A porta `EscrowGateway` usa atualmente o simulador
+`MockEscrowGateway`; o adaptador real de PSP pertence ao plano de evolução. Leia, nesta ordem:
 
 1. [docs/product/identity.md](../docs/product/identity.md) — identidade, diferencial, anti-escopo
 2. [ARCHITECTURE.md](../ARCHITECTURE.md) — bounded contexts e máquina de estados do contrato
@@ -21,7 +21,7 @@ custodia dinheiro). Leia, nesta ordem:
 
 - **Stack (travada em STACK.md):** Java 21, Spring Boot 3.2 (MVC + JPA),
   PostgreSQL 16 (JSONB + full-text nativo), RabbitMQ via Transactional Outbox,
-  React 18 + Vite + TS no web-app. **Monólito modular** — não é microservices;
+  React 19 + Vite + TS no web-app. **Monólito modular** — não é microservices;
   **sem Kafka, sem event sourcing, sem blockchain**.
 - **Deployable único:** `application/api-gateway` (REST + GraphQL + security),
   que compõe os módulos `user-management`, `sourcing-management`,
@@ -73,7 +73,7 @@ modules/<contexto>/src/main/java/com/marketplace/<contexto>/
 ./mvnw -T 1C test                 # reator completo (guardrail)
 ./mvnw -pl application/api-gateway -am test
 cd application/web-app && npm run lint && npm run build && npx vitest run
-docker compose up -d              # Postgres + RabbitMQ + API (init.sql em docker/postgres/)
+docker compose up -d postgres-main rabbitmq redis  # infraestrutura para executar a API no host
 ```
 
 ## Armadilhas conhecidas

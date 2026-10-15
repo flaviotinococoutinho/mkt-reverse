@@ -1,4 +1,6 @@
-# Guardrails de Compliance — QueroJá
+# Limites de compliance do QueroJá
+
+Este documento registra requisitos de desenho e riscos levantados no planejamento do produto. As referências legais foram mantidas como itens para revisão antes de uma operação real. Esta revisão documental não atualiza pareceres jurídicos nem comprova conformidade. O [escopo atual](../../README.md#escopo-atual) distingue o código disponível das fases planejadas.
 
 > Regras invariantes e limites de kickoff por domínio, mais o registro de riscos regulatórios.
 > Princípio geral: **todo domínio nasce com um teto — de valor, de categoria, de automação — e o
@@ -30,10 +32,7 @@ responsabilidade por fraude de terceiros (REsp 2.102.442/GO; REsp 2.067.181/PR);
 fornecimento e responde solidariamente. O QueroJá escolhe, por tese de produto, a ponta cara —
 por isso o kickoff começa deliberadamente na ponta barata (Fase 0 sem dinheiro) e sobe por fases.
 
-**Escrow próprio é armadilha regulatória.** "Escrow" jamais significa "conta da empresa que
-segura o dinheiro". Única rota compatível com MVP: escrow-as-a-service de PSP autorizado, com a
-plataforma comandando gatilhos de liberação. O módulo `payment-integration` modela conectores e
-gatilhos — nunca custódia.
+O desenho do produto exclui custódia em conta própria. A fase transacional prevê um PSP habilitado para o serviço contratado, com a plataforma enviando instruções de liberação. A porta `EscrowGateway` pertence a `agreement-management` e usa atualmente um simulador. O módulo `payment-integration` foi removido.
 
 ---
 
@@ -77,7 +76,7 @@ gatilhos — nunca custódia.
 - **Kickoff:** chat abre só após proposta enviada (não existe "conversar antes de propor");
   anexos desabilitados.
 
-### Contrato & Liquidação (`payment-integration` + contexto `agreement`, Fase 1)
+### Contrato e liquidação (`agreement-management`, Fase 1)
 - **Invariantes:** aceite gera snapshot imutável (hash + carimbo de tempo) de proposta + schema
   + termos; **eficácia só com funding do escrow** (condição suspensiva); liberação só por
   confirmação de entrega ou decurso da janela de inspeção sem disputa.
@@ -117,12 +116,9 @@ gatilhos — nunca custódia.
 
 ---
 
-## 3. Como o código reflete estes guardrails hoje
+## 3. Mapeamento técnico registrado
 
-> Regra desta tabela: afirmar somente o que o código entrega **hoje**. O que é
-> intenção fica marcado como **parcial/planejado** com a frente correspondente
-> em [../product/next-fronts.md](../product/next-fronts.md) — a tabela otimista
-> engana primeiro o próprio mantenedor.
+> A tabela registra os mecanismos técnicos associados aos requisitos. Itens parciais e planejados apontam para a [sequência técnica](../product/next-fronts.md). Confira a implementação e os testes da revisão escolhida antes de usar esses mecanismos como evidência de um controle operacional.
 
 | Guardrail | Implementação atual |
 |---|---|

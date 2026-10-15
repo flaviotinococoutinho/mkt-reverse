@@ -1,7 +1,8 @@
 # Visão do Produto: QueroJá
-## O Progresso que Nossos Clientes Buscam
 
-Este documento sintetiza os "Jobs-to-be-Done" (JTBD) — as tarefas, metas e progressos — que nossos dois principais clientes, Compradores e Vendedores, buscam alcançar. Entender isso é fundamental para construir uma solução que eles realmente queiram "contratar".
+## Objetivos de compradores e vendedores
+
+Este documento registra hipóteses sobre as tarefas e os critérios de decisão de compradores e vendedores. Essas hipóteses orientam o produto e precisam de validação com usuários.
 
 > **Como esses JTBD viram produto:** o modelo de negócio ajustado (propostas seladas, escrow via
 > PSP, nichos sequenciados — colecionáveis → moda circular → autopeças restrito) está em
@@ -10,18 +11,16 @@ Este documento sintetiza os "Jobs-to-be-Done" (JTBD) — as tarefas, metas e pro
 > métricas) em [roadmap.md](roadmap.md); os limites regulatórios em
 > [../compliance/guardrails.md](../compliance/guardrails.md).
 >
-> **Onde cada job é atendido hoje × onde será:** os jobs de *busca* do comprador e de
-> *demanda qualificada* do vendedor já são atendidos (intenção → propostas seladas →
-> comparação); os jobs de *segurança* ("me proteja de fraudes", "garanta que serei pago")
-> existem no backend e chegam à tela na R1; os jobs *sociais* (ser reconhecido como
-> especialista, sentir-se inteligente pela concorrência) dependem de reputação por contrato
-> e radar de demanda (R2).
+> O fluxo de busca inclui intenção, propostas seladas e comparação. Pagamento real,
+> reputação por contrato e radar de demanda pertencem ao plano de evolução. Os desejos
+> de segurança abaixo são hipóteses de necessidade do usuário, não garantias da plataforma.
+> Consulte o [README](../../README.md#escopo-atual) para o escopo disponível.
 
 ---
 
-## 1. O Comprador
+## 1. O comprador
 
-### 1.1. Jobs-to-be-Done (O que o Comprador quer Realizar)
+### 1.1. Jobs-to-be-Done do comprador
 
 - **Job Funcional Principal:** "Me ajude a encontrar e adquirir um item específico, raro ou personalizado com o mínimo de esforço e o máximo de segurança."
 - **Jobs Secundários:**
@@ -34,7 +33,7 @@ Este documento sintetiza os "Jobs-to-be-Done" (JTBD) — as tarefas, metas e pro
     - "Quero me sentir inteligente e valorizado por conseguir um bom negócio através da concorrência."
     - "Quero me conectar com vendedores que são especialistas e entendem do produto que busco."
 
-### 1.2. Critérios de Decisão (Como o Comprador Mede o Sucesso)
+### 1.2. Critérios de decisão do comprador
 
 Ao receber propostas, o comprador avaliará as ofertas com base nos seguintes critérios, em ordem aproximada de importância:
 
@@ -47,9 +46,9 @@ Ao receber propostas, o comprador avaliará as ofertas com base nos seguintes cr
 
 ---
 
-## 2. O Vendedor
+## 2. O vendedor
 
-### 2.1. Jobs-to-be-Done (O que o Vendedor quer Realizar)
+### 2.1. Jobs-to-be-Done do vendedor
 
 - **Job Funcional Principal:** "Me ajude a encontrar um comprador qualificado e motivado para meus produtos de nicho ou de baixo giro, sem que eu precise gastar com marketing."
 - **Jobs Secundários:**
@@ -62,7 +61,7 @@ Ao receber propostas, o comprador avaliará as ofertas com base nos seguintes cr
     - "Quero ser reconhecido como um especialista em meu nicho."
     - "Quero ter uma fonte de renda com flexibilidade e baixo atrito."
 
-### 2.2. Critérios de Decisão (Como o Vendedor Mede o Sucesso)
+### 2.2. Critérios de decisão do vendedor
 
 O vendedor avaliará a plataforma e as oportunidades com base em:
 

@@ -1,12 +1,12 @@
-# Arquitetura — QueroJá (Marketplace Reverso C2B)
+# Arquitetura do QueroJá
 
-> Reflete o estado real do código. Decisões de tecnologia travadas em [STACK.md](STACK.md).
+> Referência dos módulos e fluxos presentes no repositório. Versões e convenções em [STACK.md](STACK.md).
 > Modelo de negócio e fases em [docs/product/business-model.md](docs/product/business-model.md).
 > Limites regulatórios em [docs/compliance/guardrails.md](docs/compliance/guardrails.md).
 
-## Visão Geral
+## Visão geral
 
-Marketplace reverso C2B: compradores publicam **intenções de compra** estruturadas; vendedores respondem com **propostas seladas**; o comprador aceita e (Fase 1) o fluxo segue para contrato com **escrow via PSP autorizado**.
+No marketplace reverso C2B, compradores publicam intenções de compra estruturadas e vendedores respondem com propostas seladas. O aceite forma um contrato. As operações de escrow passam pela porta `EscrowGateway`, implementada atualmente pelo simulador `MockEscrowGateway`. A integração com um provedor real pertence à Fase 1.
 
 O sistema é um **monólito modular**: um único deployable (`application/api-gateway`) que embarca módulos de negócio Maven independentes. Isso preserva fronteiras de domínio (cada módulo tem seu domínio, aplicação e infraestrutura) sem o custo operacional de microserviços antes de haver escala que o justifique.
 
@@ -17,9 +17,9 @@ O sistema é um **monólito modular**: um único deployable (`application/api-ga
 3. **Schema como contrato** — o atributo tipado por categoria é simultaneamente artefato técnico (validação/UX) e jurídico (objeto verificável do contrato). Versionamento de schema tem rigor de contrato, não de banco de dados.
 4. **Proibir por ausência** — a taxonomia (`MccCategory`) é uma denylist estrutural: categoria proibida não existe na árvore.
 
-## Módulos e Bounded Contexts
+## Módulos e contextos de domínio
 
-### CORE (Fase 0 — em produção no slice atual)
+### Módulos do fluxo de sourcing
 
 #### `modules/user-management` — Identidade & Risco
 - `User` (Aggregate Root) com `Email`, `Password` (hash+salt), `Document` (CPF/CNPJ com validação de dígitos), `UserType` (BUYER/SUPPLIER), `UserRole`, `KycVerification`, `EmailVerification`.
@@ -34,7 +34,7 @@ O sistema é um **monólito modular**: um único deployable (`application/api-ga
   - `CategoryAttributeSchema` — schema duro por categoria: chaves permitidas, tipos esperados, chaves obrigatórias. Validação na intenção **e** na proposta.
   - `SpecAttribute`/`SpecAttributeType` — atributo tipado (TEXT, NUMBER, BOOLEAN, ENUM, WEIGHT, VOLUME, VOLTAGE, LANGUAGE, COLOR) com validação de consistência tipo/valor.
 - Estratégias de sourcing (`domain/strategy`): RFQ é o modo do kickoff; leilão aberto de preço **não é exposto no produto** (decisão do modelo de negócio — seleção adversa).
-- Busca: PostgreSQL full-text (`search_opportunities`, funções em `docker/postgres/init-fulltext-search.sql`); OpenSearch existe como read-model **opcional** atrás de `marketplace.search.opensearch.enabled` com fallback garantido para Postgres.
+- Busca: PostgreSQL full-text (`search_opportunities`, funções em `docker/postgres/init-fulltext-search.sql`); OpenSearch existe como read-model **opcional** atrás de `marketplace.search.opensearch.enabled` com fallback para Postgres.
 
 #### `modules/catalog-management` — Taxonomia & Definições de Atributo
 - `TaxonomyCategory`, `AssetType`, `AttributeDefinition`: base para evolução do schema por categoria (hoje o schema operante vive em `CategoryAttributeSchema`; este módulo é o caminho para schema versionado e administrável).
@@ -47,7 +47,7 @@ O sistema é um **monólito modular**: um único deployable (`application/api-ga
 - Erros: RFC 7807 Problem Details com `correlationId` (filtro `CorrelationIdFilter`); GraphQL espelha `code`/`correlationId` em `extensions`.
 
 #### `application/web-app` — Frontend React
-- React 18 + TypeScript + Vite; React Hook Form + Zod; Axios com refresh automático de token.
+- React 19 + TypeScript + Vite; React Hook Form + Zod; Axios com refresh automático de token.
 - Smoke E2E de API (`scripts/smoke-flow.mjs`): registra buyer/supplier, cria evento, propõe, aceita e valida status final — usado no guardrail diário de CI.
 
 ### `modules/notification-service` — Notificações do ciclo financeiro (implementado, canal in-app)
@@ -58,10 +58,9 @@ O sistema é um **monólito modular**: um único deployable (`application/api-ga
   recebida/aceita/rejeitada, pagar em custódia, envio, entrega, liberação, disputa e desfechos.
 - Consumo: `GET /api/v1/notifications` (feed do usuário autenticado, via polling do web-app) e
   `POST /api/v1/notifications/{id}/read`.
-- Evolução: WebSocket/push para os eventos onde a latência doer primeiro — latência de
-  notificação é latência do modelo.
+- Evolução prevista: WebSocket ou push para reduzir o intervalo entre o evento e a notificação visível ao usuário.
 
-> O módulo `payment-integration` foi removido: era esqueleto sem fiação e o `EscrowAgreement`
+> O módulo `payment-integration` foi removido: não estava integrado ao fluxo e o `EscrowAgreement`
 > duplicava o `Agreement`. O adaptador real de PSP será uma implementação da porta
 > `EscrowGateway` dentro do contexto `agreement` (ver next-fronts.md, Frente 3).
 
@@ -87,8 +86,7 @@ PENDING_FUNDING ──► FUNDED ──► SHIPPED ──► DELIVERED ──►
 Peças do contexto:
 - `Agreement` (aggregate root) — transições com guardas; teto de ticket na abertura.
 - `EscrowGateway` (porta) — o escrow vive no PSP autorizado; toda operação carrega **chave de
-  idempotência determinística** (`EscrowIdempotency`) para que retry jamais mova dinheiro duas
-  vezes; o domínio é validado ANTES de comandar o PSP. `MockEscrowGateway` simula o PSP (com
+  idempotência determinística** (`EscrowIdempotency`) para permitir que o adaptador deduplique novas tentativas da mesma operação; o domínio é validado ANTES de comandar o PSP. `MockEscrowGateway` simula o PSP (com
   dedupe) em dev/Fase 0; em profile `prod` o `ProductionSafetyGuard` recusa o boot com o mock
   ativo sem opt-in explícito de Fase 0.
 - `AgreementLifecycleScheduler` — lapso de funding, seller default, **não-entrega** (SHIPPED com
@@ -116,7 +114,7 @@ module/
 
 Fluxo de request: `Controller → Application Service → Domain (agregado) → Repository`.
 
-## Eventos & Assíncrono
+## Eventos e processamento assíncrono
 
 - **Transactional Outbox operante**: os application services de sourcing, agreement e o
   registro/login publicam os domain events dos agregados na MESMA transação da escrita
@@ -141,12 +139,12 @@ Fluxo de request: `Controller → Application Service → Domain (agregado) → 
 - `X-Correlation-Id` propagado (filtro + MDC + Problem Details + GraphQL extensions).
 - Micrometer/Prometheus via actuator.
 
-## O que deliberadamente NÃO existe
+## Limites do escopo
 
 | Removido/ausente | Motivo |
 |---|---|
 | Blockchain / smart contracts | Custo e ruído sem tese de valor nas fases 1–3; trilha probatória civil é entregue por evento assinado com hash + carimbo de tempo (outbox) |
-| Leilão reverso aberto (UI) | Seleção adversa comprovada; o modelo usa propostas seladas com ranking multiatributo |
+| Leilão reverso aberto (UI) | Decisão do modelo de produto para reduzir seleção adversa; o modelo usa propostas seladas com ranking multiatributo |
 | ERP integration | B2B enterprise — fora da tese C2B de nicho |
 | Escrow em conta própria | Enquadramento como instituição de pagamento irregular (BACEN) |
 | Kafka / Elasticsearch / microserviços | Complexidade sem benefício no volume atual (STACK.md) |

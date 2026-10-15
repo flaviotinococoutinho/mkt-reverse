@@ -1,110 +1,68 @@
-# QueroJá — Identidade de Produto
+# QueroJá: identidade do produto
 
-> O que este produto É, para quem, contra o quê compete, e qual é o diferencial
-> que o torna vendável. Este documento é a régua de decisões de escopo: o que
-> não reforça a identidade abaixo é candidato a corte.
-> Complementa: [vision.md](vision.md) (JTBD), [business-model.md](business-model.md)
-> (mecânica e monetização), [../compliance/guardrails.md](../compliance/guardrails.md)
-> (limites), [next-fronts.md](next-fronts.md) (o que vem a seguir).
+Este documento define o público, o posicionamento e as decisões de escopo do QueroJá. Recursos planejados precisam ser apresentados como planos. A presença de uma interface ou porta no código não comprova a operação de pagamento real.
 
----
+Consulte a [visão](vision.md), o [modelo de negócio](business-model.md), os [limites de operação](../compliance/guardrails.md) e o [plano técnico](next-fronts.md).
 
-## 1. Uma frase
+## 1. Proposta do produto
 
-**O QueroJá transforma "estou procurando" em contrato cumprido: o comprador
-publica a intenção, especialistas disputam em propostas seladas, e o aceite
-vira um contrato com pagamento protegido — sem WhatsApp, sem Pix adiantado,
-sem torcida.**
+O comprador publica uma intenção de compra de um produto físico raro, único ou de baixo giro. Os vendedores enviam propostas seladas. O aceite registra os atributos do acordo e inicia o fluxo de pagamento e entrega previsto para a fase do produto.
 
-## 2. Contra o quê competimos (e contra o quê NÃO)
+A fase transacional depende de integração real com um PSP. Até essa etapa, o ambiente usa custódia simulada. A comunicação pública precisa distinguir esses modos.
 
-- **Competimos contra o mercado informal**: grupos de WhatsApp, fóruns,
-  balcões — onde o mercado de itens raros/únicos já é líquido, mas sem busca
-  estruturada, sem reputação portátil, sem garantia de pagamento e com fraude
-  endêmica ("o Pix que não vem").
-- **NÃO competimos com o Mercado Livre**: marketplace de catálogo resolve
-  outro job. Quem procura um item raro há meses não quer rolar listagens —
-  quer que o item o encontre.
+## 2. Público e concorrência
 
-Todo texto de produto, tela e decisão de funil deve assumir esse adversário:
-o hábito informal, não outro marketplace.
+O público inicial negocia em grupos de WhatsApp, fóruns e balcões. O produto pretende organizar demandas que esses canais tratam sem busca estruturada ou comparação padronizada de propostas.
 
-## 3. Os quatro pilares da identidade
+O foco é complementar esse hábito com atributos comparáveis, histórico do acordo e acompanhamento das etapas. Marketplaces de catálogo continuam sendo alternativas para os participantes. O posicionamento não depende de alegar que o QueroJá elimina esses concorrentes ou de presumir a incidência de fraude em cada comunidade.
 
-Cada pilar é uma promessa que o código sustenta — a coluna "onde vive" é a
-prova. Promessa sem prova de código não entra nesta tabela (vai para o
-[next-fronts.md](next-fronts.md)).
+## 3. Decisões de produto e mecanismos
 
-| # | Pilar | Promessa ao usuário | Onde vive no código |
-|---|---|---|---|
-| 1 | **Proposta selada** | "Especialistas disputam pela sua demanda — sem leilão de quem aceita menos." Vendedor não vê concorrentes; máx. 7 propostas, 1 por vendedor, validade de 72h. | Guardrails em `SourcingEvent`/`SupplierResponse`; visibilidade de propostas restrita ao dono (REST e GraphQL) |
-| 2 | **O aceite vira contrato** | "O que foi proposto é o que vale." Snapshot imutável (proposta + schema + termos) com SHA-256 no instante do aceite; disputa vira conferência de campos, não bate-boca. | `AcceptanceCoordinator` + `Agreement.open` (snapshot canônico + hash); trilha probatória no outbox transacional |
-| 3 | **Dinheiro protegido, nunca custodiado** | "Você só paga quando há contrato; ele só recebe quando você recebe." Escrow em PSP autorizado; a plataforma comanda gatilhos, jamais toca o dinheiro. | Porta `EscrowGateway` (idempotente por operação); máquina de estados fund → ship → deliver → release com janelas e reembolso automático |
-| 4 | **Ninguém fica no escuro** | "O modelo morre de latência — então cada passo avisa." Proposta aceita, hora de pagar, item enviado, dinheiro liberado: tudo notificado. | Domain events despachados em todos os módulos → feed in-app (`/api/v1/notifications`); WebSocket/push é evolução, não pré-requisito |
+A tabela registra o desenho do produto e as referências técnicas para sua implementação. A disponibilidade de cada recurso depende da release e da validação correspondente.
 
-## 4. O diferencial defensável
+| Decisão | Mecanismo | Referência técnica |
+| --- | --- | --- |
+| Propostas seladas | O vendedor não vê propostas concorrentes. O limite previsto é de sete propostas por intenção, uma por vendedor, com validade de 72 horas. | `SourcingEvent`, `SupplierResponse` e autorização em REST e GraphQL |
+| Registro do acordo no aceite | Snapshot da proposta, do schema e dos termos, com hash SHA-256. | `AcceptanceCoordinator`, `Agreement.open` e outbox transacional |
+| Custódia terceirizada | A plataforma envia instruções ao PSP, sem receber valores em conta própria. A integração real está prevista para R3. | `EscrowGateway`, idempotência por operação e transições de pagamento, envio, entrega e liberação |
+| Acompanhamento das etapas | Informar aceite, pagamento, envio e liberação no feed da aplicação. WebSocket e push permanecem como evolução. | Eventos de domínio e `/api/v1/notifications` |
 
-O ativo que os concorrentes informais não podem copiar e um marketplace de
-catálogo não tem incentivo para construir:
+O fluxo de custódia simulada permite testar transições e prazos. Ele não demonstra proteção de pagamento, reembolso ou liquidação por um provedor.
 
-**O schema de atributos tipados por categoria é a espinha probatória do
-contrato.** "A peça proposta era `original=true, ano=2014` e chegou
-paralela/2011" é inadimplemento objetivo, arbitrável em minutos. Isso barateia
-o custo mais caro do modelo (disputas) e é o que permite prometer proteção de
-verdade com take rate viável. Cada categoria nova herda o mecanismo; cada
-disputa resolvida por conferência de campos reforça o fosso.
+## 4. Atributos estruturados e evidência do acordo
 
-Derivados desse ativo (em ordem de maturidade): trilha probatória por evento
-com hash e carimbo de tempo → reputação bilateral ancorada em contratos reais
-(não em reviews) → inteligência de demanda agregada (Fase 2+, só com política
-LGPD aprovada).
+O schema por categoria descreve o item negociado. Um snapshot com `original=true` e `ano=2014` permite comparar os atributos ofertados com os do item recebido.
 
-## 5. O que torna o produto vendável — por lado
+Esse registro deve ajudar na resolução de disputas. Redução de custo, tempo de atendimento e eficácia da evidência são hipóteses a validar. O mecanismo não permite prometer uma decisão automática ou juridicamente garantida.
 
-**Para o comprador** (compra a segurança): "pare de garimpar e pare de rezar" —
-publica uma vez, recebe propostas comparáveis campo a campo, paga em custódia
-e tem janela de inspeção com reembolso automático se o item não vier.
+O plano prevê usar os contratos concluídos para formar reputação bilateral. Informações agregadas de demanda ficam para a Fase 2 ou posterior, depois da análise de privacidade. Nenhum desses usos é uma consequência automática da existência do snapshot.
 
-**Para o vendedor** (compra o comprador qualificado): demanda com intenção
-real e orçamento, zero custo para propor, e a certeza de que quem aceitou já
-pagou — o escrow protege os dois lados. Vender o QueroJá ao vendedor é vender
-liquidez para estoque parado.
+## 5. Benefícios a validar por participante
 
-**Para a plataforma** (o que sustenta o take rate de 8–15%): o contrato
-probatório barateia a disputa; o escrow mata o vazamento (aceitar dentro e
-liquidar fora perde a proteção); a proposta selada preserva margem do
-especialista — os três juntos justificam pagar a taxa em vez de voltar ao
-WhatsApp.
+| Participante | Benefício esperado | Dependência |
+| --- | --- | --- |
+| Comprador | Publicar uma demanda e comparar propostas por atributos, preço e prazo | Oferta suficiente no nicho e preenchimento correto dos atributos |
+| Vendedor | Receber demandas com orçamento e especificação, sem pagar para propor | Qualidade das intenções e retenção dos compradores |
+| Comprador e vendedor | Acompanhar pagamento, entrega e eventual disputa | PSP real, contratos, operação e regras de resolução validados |
+| Plataforma | Cobrir custos com uma comissão de referência entre 8% e 15% | Liquidez, perdas e custo de disputa medidos |
 
-## 6. Como falamos (voz)
+A proteção da transação e a reputação devem incentivar a conclusão dentro da plataforma. A redução da desintermediação precisa de medição.
 
-- **Direto e concreto.** "Sua proposta foi aceita. O comprador tem 48h para
-  pagar em custódia." Nunca juridiquês, nunca hype.
-- **A promessa sempre com o mecanismo.** Não "compra 100% segura", mas "o
-  dinheiro fica no PSP até você confirmar o recebimento".
-- **PT-BR como língua de produto.** Termos técnicos internos (fund, release)
-  nunca vazam para a UI: é "pagar em custódia", "liberar pagamento",
-  "confirmar recebimento".
-- **Nunca prometer o que o código não sustenta.** A tabela do §3 é o limite
-  do discurso público; o resto é roadmap e se apresenta como roadmap.
+## 6. Voz do produto
 
-## 7. Anti-escopo (o que o QueroJá NÃO é)
+- Use frases diretas e informe a próxima ação. Exemplo, quando o prazo estiver implementado: "Sua proposta foi aceita. O comprador tem 48 horas para pagar em custódia."
+- Explique o mecanismo de proteção disponível na fase. Informe quem recebe o dinheiro, quando ocorre a liberação e como pedir ajuda. Não prometa compra totalmente segura.
+- Escreva a interface em português do Brasil. Prefira "pagar em custódia", "liberar pagamento" e "confirmar recebimento" aos nomes internos `fund` e `release`.
+- Apresente recursos futuros como planos. A promessa pública depende do comportamento implementado e verificado, não apenas deste documento.
 
-Cortes deliberados que protegem a identidade — reabrir qualquer um exige
-decisão explícita com dado novo:
+## 7. Exclusões de escopo
 
-- **Não é leilão aberto** — lances públicos degradam oferta e afastam
-  especialistas (TaskRabbit 2014, GetNinjas). Proposta selada é inegociável.
-- **Não é classificado** — sem contrato e escrow somos só mais um mural; o
-  valor está na liquidação protegida.
-- **Não custodia dinheiro** — jamais, em nenhuma fase (Lei 12.865/2013;
-  Res. BCB 80/2021). Sem "carteira QueroJá".
-- **Não é para serviços** — produto físico raro/único/baixo giro. Serviços
-  reintroduzem as forças que matam o modelo (latência intolerável, proposta
-  cara, seleção adversa).
-- **Não usa blockchain no discurso nem no código** — evento assinado com hash
-  e carimbo de tempo entrega a função probatória civil.
-- **Não vende lead** — nunca cobrar do vendedor para ver ou responder
-  intenção; monetização é sucesso (take rate) ou nada.
-- **Não abre categoria proibida** — a taxonomia é denylist estrutural:
-  o que não está em `MccCategory` não existe no produto.
+Estas decisões só mudam com revisão explícita e evidência nova:
+
+- Usar propostas seladas, sem lances públicos de preço.
+- Incluir contrato e custódia terceirizada na fase transacional. A Fase 0 valida a demanda sem receber dinheiro pela plataforma.
+- Manter valores fora de conta própria da plataforma. Não oferecer uma carteira QueroJá.
+- Atender produtos físicos raros, únicos ou de baixo giro. Serviços ficam fora do recorte.
+- Manter blockchain fora do código e da comunicação do produto. Hashes e eventos registram o histórico técnico, sem promessa de equivalência jurídica.
+- Não cobrar para ver ou responder intenções. A monetização depende de transações concluídas, conforme a fase.
+- Oferecer somente categorias habilitadas na taxonomia `MccCategory`, após os controles correspondentes. Categorias ausentes não ficam disponíveis para publicação.

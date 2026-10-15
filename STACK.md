@@ -1,101 +1,50 @@
-# Stack Definition
+# Stack reference
 
-> Locked technology decisions. Updated: 2026-04-22.
+This reference describes the versions declared in the repository. The Maven build, frontend lockfile, and Compose file define the exact dependencies.
 
-## Technology Stack
+## Declared versions
 
-| Layer | Technology | Version |
-|-------|------------|---------|
-| Language | Java | 21 LTS |
-| Framework | Spring Boot | 3.2.x |
-| HTTP | Spring MVC (`spring-boot-starter-web`) | built-in |
-| Database | PostgreSQL | 16 |
-| ORM | Spring Data JPA / Hibernate | 6.x |
-| Security | Spring Security + JWT | built-in |
-| Validation | Bean Validation (JSR-380) | built-in |
-| Concurrency | Optimistic locking (`@Version`) | built-in |
-| Messaging | RabbitMQ + Spring AMQP | built-in |
-| Build | Maven | 3.9+ |
-| Frontend | React 18 + TypeScript | 5.x |
-| Bundler | Vite | 5.x |
-| Container | Docker + Docker Compose | latest |
-| Cache | Redis (Spring Data Redis) | 7 |
+| Component | Declaration | Source |
+|---|---|---|
+| Java target | 21 | Root `pom.xml` |
+| JDK in MVP CI | 25 | `.github/workflows/mvp-daily-guardrail.yml` |
+| Spring Boot | 3.2.1 | Root `pom.xml` |
+| PostgreSQL | 16 | `docker-compose.yml` |
+| RabbitMQ | `3-management-alpine` | `docker-compose.yml` |
+| Redis | `7-alpine` | `docker-compose.yml` |
+| React | `^19.2.0` | `application/web-app/package.json` |
+| TypeScript | `~5.9.3` | `application/web-app/package.json` |
+| Vite | `^7.2.4` | `application/web-app/package.json` |
+| Node.js | Node 20 from 20.19.0, or Node 22.12.0 and later, for the locked Vite version; CI uses Node 22 | Frontend lockfile and MVP workflow |
 
-## What We ARE Using
+Package ranges are not installed versions. Use `package-lock.json` to reproduce the frontend dependency tree.
 
-### Backend
-- **Spring MVC** — synchronous HTTP handling, simpler mental model
-- **Spring Data JPA** — ORM with PostgreSQL
-- **Spring Security + JWT** — stateless auth with refresh tokens
-- **Bean Validation** — declarative input validation
-- **@PreAuthorize (RBAC)** — role-based access control on methods (`@EnableMethodSecurity`)
-- **Spring GraphQL** — superfície complementar de consulta/mutação (mesmo domínio da REST)
-- **Typed attribute schema** — validação dura de atributos por categoria MCC (`CategoryAttributeSchema`)
+## Backend and frontend
 
-### Frontend
-- **React 18** — component-based UI
-- **TypeScript** — type safety
-- **Vite** — fast dev server and bundler
-- **React Hook Form + Zod** — form validation
-- **React Router** — client-side routing
-- **Axios** — HTTP client
+The gateway uses Spring MVC, Spring Data JPA, Spring Security, JWT, Bean Validation, and Spring GraphQL. `@EnableMethodSecurity` enables method authorization. The REST API and GraphQL controllers use the same application modules.
 
-### Infrastructure
-- **PostgreSQL 16** — primary datastore (full-text search via `tsvector`)
-- **RabbitMQ** — async messaging, event publishing
-- **Redis** — caching, session storage
-- **Docker Compose** — local dev and production orchestration
+The frontend uses React Router, Axios, React Hook Form, and Zod. Vite provides the development server and build. The project uses npm and commits its lockfile.
 
-## What We Are NOT Using
+## Storage and events
 
-| Rejected | Reason |
-|----------|--------|
-| **WebFlux + R2DBC** | Reactive needed only at high concurrency; adds complexity without near-term MVP benefit |
-| **Kafka** | RabbitMQ is sufficient for event streaming at MVP scale |
-| **Elasticsearch** | PostgreSQL full-text search é o padrão; OpenSearch existe apenas como read-model opcional atrás de flag (`marketplace.search.opensearch.enabled`) |
-| **MongoDB** | Relational model fits the domain; no document-store need identified |
-| **gRPC** | REST is simpler and sufficient for external API |
+PostgreSQL stores application data, JSONB attributes, and the transactional outbox. PostgreSQL full-text search is the primary search implementation. OpenSearch is an optional adapter controlled by `marketplace.search.opensearch.enabled`; the local Compose file does not start it.
 
-## Architecture Pattern
+The outbox relay publishes to RabbitMQ when enabled. Redis is declared in the local Compose configuration. The default deployment is a modular monolith, with `application/api-gateway` composing the business modules.
 
-**Layered Architecture** (simplified Clean Architecture):
-```
-request → Controller → Application Service → Repository → Database
-                                 ↓
-                    Domain (aggregates + value objects)
-```
+## API conventions
 
-- **Controllers** — HTTP handling only, no business logic
-- **Services** — orchestration, transaction boundaries
-- **Repositories** — data access abstraction
-- **Domain** — pure business logic, no framework dependencies
-- **Value Objects** — immutable, self-validating
+| Item | Convention |
+|---|---|
+| REST prefix | `/api/v1` |
+| GraphQL endpoint | `/graphql` |
+| Authentication | Bearer JWT in the `Authorization` header |
+| Method authorization | `@PreAuthorize` with role and ownership checks |
+| REST errors | Problem Details with `correlationId` |
+| GraphQL errors | `code` and `correlationId` in `extensions` |
+| List pagination | Page and size parameters, with HAL links |
 
-## API Conventions
+## Design decisions
 
-| Rule | Decision |
-|------|----------|
-| Protocol | REST over HTTP |
-| Format | JSON (`application/json`) |
-| Errors | RFC 7807 Problem Details |
-| Pagination | Page-based (`?page=&size=`), HAL/HATEOAS nas listagens |
-| Sorting | `?sort=createdAt,desc` |
-| Auth | Bearer JWT in `Authorization` header |
-| Timestamps | ISO-8601 UTC |
+The project uses a modular monolith with domain, application, and infrastructure packages. It does not require WebFlux, R2DBC, MongoDB, gRPC, Kafka, or Debezium for the current flow. These are scoped project choices, not general claims about the technologies.
 
-## Database Conventions
-
-| Rule | Decision |
-|------|----------|
-| IDs | UUID (string representation in JSON) |
-| Timestamps | `TIMESTAMP WITH TIME ZONE` |
-| Soft deletes | `deleted_at` column |
-| Optimistic locking | `@Version` column |
-| JSON handling | `jsonb` column type |
-| Full-text search | PostgreSQL `tsvector` + `tsquery` |
-| Naming | snake_case for columns/tables |
-
-## Stack Stability: LOCKED ✅
-
-> This file is the source of truth for technology decisions.  
-> Changes require a PR with rationale and team approval.
+The existing policy requires a rationale and team approval for changes to technology decisions. This reference does not introduce new decisions. See [ARCHITECTURE.md](ARCHITECTURE.md) for module responsibilities and [README.md](README.md) for execution commands.
